@@ -8,12 +8,14 @@ export class GeminiService {
   private ai: GoogleGenAI;
 
   constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env['API_KEY'] || '' });
+    const apiKey = process.env['API_KEY'] || '';
+    this.ai = new GoogleGenAI({ apiKey });
   }
 
   async getBusinessAdvice(salesData: string): Promise<string> {
     try {
-      if (!process.env['API_KEY']) {
+      const apiKey = process.env['API_KEY'];
+      if (!apiKey) {
         return "API Key မထည့်ထားပါ။ (No API Key found)";
       }
 
@@ -37,7 +39,7 @@ export class GeminiService {
         contents: prompt,
       });
 
-      return response.text;
+      return response.text || "အကြံဉာဏ်မရရှိနိုင်ပါ။";
     } catch (error) {
       console.error('AI Error:', error);
       return "AI စနစ် ချိတ်ဆက်၍မရပါ။ နောက်မှပြန်ကြိုးစားပါ။";
@@ -52,7 +54,7 @@ export class GeminiService {
             model: 'gemini-2.5-flash',
             contents: `Write a very short, catchy, futuristic product description (1 sentence) for '${productName}' in Burmese.`,
         });
-        return response.text;
+        return response.text || "ဖော်ပြချက်မရရှိနိုင်ပါ။";
     } catch (e) {
         return "ဖော်ပြချက်မရရှိနိုင်ပါ။";
     }
