@@ -4,11 +4,19 @@ export interface Product {
   id: number;
   barcode: string;
   name: string;
-  price: number; // Selling Price
-  cost: number;  // Buying Price (For Profit Calc)
+  price: number; 
+  cost: number;  
   category: string;
   image: string;
   stock: number;
+}
+
+export interface Customer {
+  id: number;
+  name: string;
+  phone: string;
+  totalDebt: number; // Total Credit Amount
+  lastPurchase: string;
 }
 
 export interface CartItem {
@@ -23,9 +31,10 @@ export interface Order {
   subtotal: number;
   discount: number;
   total: number;
-  totalCost: number; // Total Buying Price
-  totalProfit: number; // Profit for this order
-  paymentMethod: 'Cash' | 'KBZ Pay' | 'Wave Pay';
+  totalCost: number; 
+  totalProfit: number; 
+  paymentMethod: 'Cash' | 'KBZ Pay' | 'Wave Pay' | 'Credit'; // Added Credit
+  customerId?: number; // Linked Customer
   currency: 'MMK' | 'THB' | 'CNY';
 }
 
@@ -34,6 +43,14 @@ export interface ParkedOrder {
   timestamp: Date;
   items: CartItem[];
   note: string;
+}
+
+export interface Expense {
+  id: number;
+  description: string;
+  amount: number;
+  category: 'General' | 'Salary' | 'Utility' | 'Restock';
+  date: string;
 }
 
 export interface ShopConfig {
@@ -47,11 +64,12 @@ export interface ShopConfig {
   providedIn: 'root'
 })
 export class PosService {
-  private exchangeRates = {
+  // Exchange Rates as Signal for editing
+  exchangeRates = signal({
     MMK: 1,
     THB: 100,
     CNY: 450
-  };
+  });
 
   // Mock initial data
   private initialProducts: Product[] = [
@@ -71,12 +89,16 @@ export class PosService {
   categories = signal<string[]>(['Drinks', 'Food', 'Stationery', 'Other']);
 
   products = signal<Product[]>([]);
+  customers = signal<Customer[]>([]); // Customer List
   cart = signal<CartItem[]>([]);
   orders = signal<Order[]>([]);
   parkedOrders = signal<ParkedOrder[]>([]);
+  expenses = signal<Expense[]>([]); 
+
   activeCurrency = signal<'MMK' | 'THB' | 'CNY'>('MMK');
   
   cartDiscount = signal<number>(0); 
+  selectedCustomerId = signal<number | null>(null); // Current customer in cart
   
   // Licensing
   enteredLicense = signal<string>(localStorage.getItem('fw_entered_license') || '');
@@ -93,7 +115,10 @@ export class PosService {
     effect(() => localStorage.setItem('fw_orders', JSON.stringify(this.orders())));
     effect(() => localStorage.setItem('fw_parked', JSON.stringify(this.parkedOrders())));
     effect(() => localStorage.setItem('fw_categories', JSON.stringify(this.categories())));
+    effect(() => localStorage.setItem('fw_expenses', JSON.stringify(this.expenses())));
+    effect(() => localStorage.setItem('fw_customers', JSON.stringify(this.customers())));
     effect(() => localStorage.setItem('fw_shop_info', JSON.stringify(this.shopInfo())));
+    effect(() => localStorage.setItem('fw_rates', JSON.stringify(this.exchangeRates()))); // Save Rates
     
     // Security persistence
     effect(() => localStorage.setItem('fw_entered_license', this.enteredLicense()));
@@ -106,7 +131,10 @@ export class PosService {
     const o = localStorage.getItem('fw_orders');
     const park = localStorage.getItem('fw_parked');
     const cats = localStorage.getItem('fw_categories');
+    const exp = localStorage.getItem('fw_expenses');
+    const cust = localStorage.getItem('fw_customers');
     const shop = localStorage.getItem('fw_shop_info');
+    const rates = localStorage.getItem('fw_rates');
     
     if (p) this.products.set(JSON.parse(p));
     else this.products.set(this.initialProducts);
@@ -114,7 +142,10 @@ export class PosService {
     if (o) this.orders.set(JSON.parse(o));
     if (park) this.parkedOrders.set(JSON.parse(park));
     if (cats) this.categories.set(JSON.parse(cats));
+    if (exp) this.expenses.set(JSON.parse(exp));
+    if (cust) this.customers.set(JSON.parse(cust));
     if (shop) this.shopInfo.set(JSON.parse(shop));
+    if (rates) this.exchangeRates.set(JSON.parse(rates));
   }
 
   // --- Calculations ---
@@ -136,18 +167,28 @@ export class PosService {
     return this.cart().reduce((acc, item) => acc + item.quantity, 0);
   });
 
+  // Today's Stats
   totalSalesToday = computed(() => {
       const today = new Date().toDateString();
       return this.orders()
-        .filter(o => new Date(o.date).toDateString() === today)
+        .filter(o => new Date(o.date).toDateString() === today && o.paymentMethod !== 'Credit') // Don't count credit as cash-in-hand
         .reduce((acc, order) => acc + order.total, 0);
   });
   
-  totalProfitToday = computed(() => {
+  totalExpensesToday = computed(() => {
       const today = new Date().toDateString();
-      return this.orders()
+      return this.expenses()
+        .filter(e => new Date(e.date).toDateString() === today)
+        .reduce((acc, exp) => acc + exp.amount, 0);
+  });
+
+  totalNetProfitToday = computed(() => {
+      const today = new Date().toDateString();
+      const grossProfit = this.orders()
         .filter(o => new Date(o.date).toDateString() === today)
         .reduce((acc, order) => acc + (order.totalProfit || 0), 0);
+      
+      return grossProfit - this.totalExpensesToday();
   });
 
   dailySalesSummary = computed(() => {
@@ -158,16 +199,63 @@ export class PosService {
           cash: todayOrders.filter(o => o.paymentMethod === 'Cash').reduce((acc, o) => acc + o.total, 0),
           kbz: todayOrders.filter(o => o.paymentMethod === 'KBZ Pay').reduce((acc, o) => acc + o.total, 0),
           wave: todayOrders.filter(o => o.paymentMethod === 'Wave Pay').reduce((acc, o) => acc + o.total, 0),
+          credit: todayOrders.filter(o => o.paymentMethod === 'Credit').reduce((acc, o) => acc + o.total, 0),
           total: todayOrders.reduce((acc, o) => acc + o.total, 0),
-          profit: todayOrders.reduce((acc, o) => acc + (o.totalProfit || 0), 0),
+          grossProfit: todayOrders.reduce((acc, o) => acc + (o.totalProfit || 0), 0),
+          expenses: this.totalExpensesToday(),
+          netProfit: this.totalNetProfitToday(),
           count: todayOrders.length
       };
   });
 
+  // Last 7 Days Sales for Chart
+  last7DaysSales = computed(() => {
+      const result = [];
+      for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const dateStr = d.toDateString();
+          
+          const total = this.orders()
+              .filter(o => new Date(o.date).toDateString() === dateStr)
+              .reduce((acc, o) => acc + o.total, 0);
+          
+          result.push({
+              day: d.toLocaleDateString('en-US', { weekday: 'short' }),
+              amount: total
+          });
+      }
+      return result;
+  });
+  
+  topSellingItems = computed(() => {
+      const itemMap = new Map<string, number>();
+      this.orders().forEach(order => {
+          order.items.forEach(item => {
+              const current = itemMap.get(item.product.name) || 0;
+              itemMap.set(item.product.name, current + item.quantity);
+          });
+      });
+      
+      return Array.from(itemMap.entries())
+          .map(([name, qty]) => ({ name, qty }))
+          .sort((a, b) => b.qty - a.qty)
+          .slice(0, 5); // Top 5
+  });
+
+  // Low Stock Items (< 5)
+  lowStockItems = computed(() => {
+      return this.products().filter(p => p.stock < 5);
+  });
+
   // --- Currency Helpers ---
   convertPrice(priceMMK: number): number {
-      const rate = this.exchangeRates[this.activeCurrency()];
+      const rate = this.exchangeRates()[this.activeCurrency()];
       return Math.ceil(priceMMK / rate); 
+  }
+
+  updateExchangeRate(currency: 'THB' | 'CNY', rate: number) {
+      this.exchangeRates.update(r => ({...r, [currency]: rate}));
   }
 
   getCurrencySymbol(): string {
@@ -222,9 +310,14 @@ export class PosService {
       this.cartDiscount.set(amount);
   }
 
+  selectCustomerForCart(custId: number | null) {
+      this.selectedCustomerId.set(custId);
+  }
+
   clearCart() {
     this.cart.set([]);
     this.cartDiscount.set(0);
+    this.selectedCustomerId.set(null);
   }
 
   // --- Hold / Retrieve Bill ---
@@ -256,15 +349,33 @@ export class PosService {
   }
 
   // --- Checkout ---
-  checkout(paymentMethod: 'Cash' | 'KBZ Pay' | 'Wave Pay'): Order | null {
+  checkout(paymentMethod: 'Cash' | 'KBZ Pay' | 'Wave Pay' | 'Credit'): Order | null {
     const currentCart = this.cart();
     if (currentCart.length === 0) return null;
 
     const totalSale = this.cartTotalMMK();
     const totalCost = this.cartTotalCostMMK();
-    // Profit = (Total Sale - Discount) - Cost
-    // Note: Discount cuts into profit.
     const totalProfit = totalSale - totalCost;
+
+    // Handle Credit Logic
+    if (paymentMethod === 'Credit') {
+        const custId = this.selectedCustomerId();
+        if (!custId) return null; // Cannot do credit without customer
+        
+        // Update Customer Debt
+        this.customers.update(custs => custs.map(c => 
+            c.id === custId 
+            ? { ...c, totalDebt: c.totalDebt + totalSale, lastPurchase: new Date().toISOString() }
+            : c
+        ));
+    } else if (this.selectedCustomerId()) {
+        // Cash purchase but customer linked (update last purchase date)
+        this.customers.update(custs => custs.map(c => 
+            c.id === this.selectedCustomerId()
+            ? { ...c, lastPurchase: new Date().toISOString() }
+            : c
+        ));
+    }
 
     // Deduct Stock
     this.products.update(allProducts => {
@@ -288,6 +399,7 @@ export class PosService {
       totalCost: totalCost,
       totalProfit: totalProfit,
       paymentMethod,
+      customerId: this.selectedCustomerId() || undefined,
       currency: 'MMK'
     };
 
@@ -312,8 +424,58 @@ export class PosService {
           });
       });
 
+      // Reverse Credit if applicable
+      if (order.paymentMethod === 'Credit' && order.customerId) {
+          this.customers.update(custs => custs.map(c => 
+             c.id === order.customerId
+             ? { ...c, totalDebt: Math.max(0, c.totalDebt - order.total) }
+             : c
+          ));
+      }
+
       // Remove order
       this.orders.update(orders => orders.filter(o => o.id !== orderId));
+  }
+
+  // --- Customer Management ---
+  addCustomer(name: string, phone: string) {
+      const newCust: Customer = {
+          id: Date.now(),
+          name,
+          phone,
+          totalDebt: 0,
+          lastPurchase: new Date().toISOString()
+      };
+      this.customers.update(c => [...c, newCust]);
+  }
+
+  deleteCustomer(id: number) {
+      this.customers.update(c => c.filter(cust => cust.id !== id));
+  }
+
+  repayDebt(customerId: number, amount: number) {
+      this.customers.update(custs => custs.map(c => {
+          if (c.id === customerId) {
+              return { ...c, totalDebt: Math.max(0, c.totalDebt - amount) };
+          }
+          return c;
+      }));
+  }
+
+  // --- Expense Management ---
+  addExpense(description: string, amount: number, category: Expense['category']) {
+      const newExpense: Expense = {
+          id: Date.now(),
+          description,
+          amount,
+          category,
+          date: new Date().toISOString()
+      };
+      this.expenses.update(e => [newExpense, ...e]);
+  }
+
+  deleteExpense(id: number) {
+      this.expenses.update(e => e.filter(item => item.id !== id));
   }
 
   // --- Product & Category & Shop Management ---
@@ -325,6 +487,40 @@ export class PosService {
       const trimmed = categoryName.trim();
       if (trimmed && !this.categories().includes(trimmed)) {
           this.categories.update(c => [...c, trimmed]);
+      }
+  }
+  
+  // NEW: Update and Delete Category Logic
+  updateCategory(oldName: string, newName: string) {
+      const trimmed = newName.trim();
+      if (!trimmed || oldName === trimmed) return;
+
+      // 1. Update Products using this category
+      this.products.update(ps => ps.map(p => p.category === oldName ? { ...p, category: trimmed } : p));
+
+      // 2. Update Category List
+      this.categories.update(cats => {
+          // If new name exists, remove old and assume merge
+          if (cats.includes(trimmed)) {
+              return cats.filter(c => c !== oldName);
+          }
+          // Else rename
+          return cats.map(c => c === oldName ? trimmed : c);
+      });
+  }
+
+  deleteCategory(categoryName: string) {
+      if (categoryName === 'Other') return; // Protect default
+
+      // 1. Move products to 'Other'
+      this.products.update(ps => ps.map(p => p.category === categoryName ? { ...p, category: 'Other' } : p));
+
+      // 2. Remove from list
+      this.categories.update(cats => cats.filter(c => c !== categoryName));
+      
+      // Ensure 'Other' exists
+      if (!this.categories().includes('Other')) {
+          this.categories.update(c => [...c, 'Other']);
       }
   }
 
@@ -387,10 +583,13 @@ export class PosService {
       const data = {
           products: this.products(),
           orders: this.orders(),
+          customers: this.customers(),
+          expenses: this.expenses(),
           categories: this.categories(),
           shopInfo: this.shopInfo(),
+          rates: this.exchangeRates(),
           license: this.enteredLicense(),
-          version: '1.3'
+          version: '1.7'
       };
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
       const url = window.URL.createObjectURL(blob);
@@ -410,8 +609,11 @@ export class PosService {
                   if (data.products && data.orders) {
                       this.products.set(data.products);
                       this.orders.set(data.orders);
+                      if(data.expenses) this.expenses.set(data.expenses);
+                      if(data.customers) this.customers.set(data.customers);
                       if(data.categories) this.categories.set(data.categories);
                       if(data.shopInfo) this.shopInfo.set(data.shopInfo);
+                      if(data.rates) this.exchangeRates.set(data.rates);
                       if(data.license) this.enteredLicense.set(data.license);
                       resolve(true);
                   } else {

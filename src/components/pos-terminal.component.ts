@@ -1,6 +1,6 @@
 import { Component, inject, signal, computed, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { PosService, Product, Order } from '../services/pos.service';
+import { PosService, Product, Order, Customer } from '../services/pos.service';
 import { FormsModule } from '@angular/forms';
 
 @Component({
@@ -56,28 +56,44 @@ import { FormsModule } from '@angular/forms';
           
           <div class="flex flex-col md:flex-row justify-between gap-3 items-center">
               <!-- Category Tabs (Dynamic) -->
-              <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar w-full md:w-auto">
+              <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar w-full md:w-auto items-center">
                 <button 
                     class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" 
-                    [class]="selectedCategory() === 'All' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" 
-                    (click)="selectedCategory.set('All')">
+                    [class]="selectedCategory() === 'All' && !filterLowStock() ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" 
+                    (click)="selectedCategory.set('All'); filterLowStock.set(false)">
                     အားလုံး
                 </button>
+                
+                <button 
+                    class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1" 
+                    [class]="filterLowStock() ? 'bg-red-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" 
+                    (click)="filterLowStock.set(!filterLowStock()); selectedCategory.set('All')">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    Low Stock
+                </button>
+
                 @for (cat of posService.categories(); track cat) {
                     <button 
                         class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" 
                         [class]="selectedCategory() === cat ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" 
-                        (click)="selectedCategory.set(cat)">
+                        (click)="selectedCategory.set(cat); filterLowStock.set(false)">
                         {{ cat }}
                     </button>
                 }
               </div>
 
               <!-- Currency Switcher -->
-              <div class="flex gap-1 bg-gray-700 rounded-lg p-1 shrink-0">
-                  <button (click)="setCurrency('MMK')" [class]="posService.activeCurrency() === 'MMK' ? 'bg-cyan-500 text-black shadow-md' : 'text-gray-400 hover:text-white'" class="px-3 py-1.5 rounded-md text-xs font-bold transition-all">MMK</button>
-                  <button (click)="setCurrency('THB')" [class]="posService.activeCurrency() === 'THB' ? 'bg-cyan-500 text-black shadow-md' : 'text-gray-400 hover:text-white'" class="px-3 py-1.5 rounded-md text-xs font-bold transition-all">THB</button>
-                  <button (click)="setCurrency('CNY')" [class]="posService.activeCurrency() === 'CNY' ? 'bg-cyan-500 text-black shadow-md' : 'text-gray-400 hover:text-white'" class="px-3 py-1.5 rounded-md text-xs font-bold transition-all">CNY</button>
+              <div class="flex flex-col items-end">
+                  <div class="flex gap-1 bg-gray-700 rounded-lg p-1 shrink-0">
+                      <button (click)="setCurrency('MMK')" [class]="posService.activeCurrency() === 'MMK' ? 'bg-cyan-500 text-black shadow-md' : 'text-gray-400 hover:text-white'" class="px-3 py-1.5 rounded-md text-xs font-bold transition-all">MMK</button>
+                      <button (click)="setCurrency('THB')" [class]="posService.activeCurrency() === 'THB' ? 'bg-cyan-500 text-black shadow-md' : 'text-gray-400 hover:text-white'" class="px-3 py-1.5 rounded-md text-xs font-bold transition-all">THB</button>
+                      <button (click)="setCurrency('CNY')" [class]="posService.activeCurrency() === 'CNY' ? 'bg-cyan-500 text-black shadow-md' : 'text-gray-400 hover:text-white'" class="px-3 py-1.5 rounded-md text-xs font-bold transition-all">CNY</button>
+                  </div>
+                  <!-- Always show Rates Button -->
+                  <button (click)="openRateModal()" class="text-[10px] text-cyan-400 mt-1 mr-1 animate-fadeIn hover:text-cyan-300 hover:underline flex items-center gap-1">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                      Exchange Rates (ငွေဈေးနှုန်းများ)
+                  </button>
               </div>
           </div>
         </div>
@@ -111,7 +127,7 @@ import { FormsModule } from '@angular/forms';
           }
           @if (filteredProducts().length === 0) {
              <div class="col-span-full flex flex-col items-center justify-center text-gray-500 py-10">
-                <p class="text-lg">ကုန်ပစ္စည်းမတွေ့ပါ</p>
+                <p class="text-lg">{{ filterLowStock() ? 'လက်ကျန်နည်းသော ပစ္စည်းမရှိပါ' : 'ကုန်ပစ္စည်းမတွေ့ပါ' }}</p>
              </div>
           }
         </div>
@@ -132,6 +148,21 @@ import { FormsModule } from '@angular/forms';
                </button>
                <span class="bg-cyan-900 text-cyan-200 text-xs px-2 py-1 rounded-full">{{ posService.cartCount() }} ခု</span>
           </div>
+        </div>
+
+        <!-- Customer Select (New) -->
+        <div class="px-4 py-2 border-b border-gray-700 bg-gray-800/80">
+            <button (click)="showCustomerModal.set(true)" class="w-full flex items-center justify-between text-sm text-gray-300 hover:text-white bg-gray-900 p-2 rounded-lg border border-gray-700 hover:border-cyan-500 transition-colors">
+                <span class="flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    {{ selectedCustomerName() || 'Customer (General)' }}
+                </span>
+                @if(selectedCustomerName()) {
+                    <span class="text-xs bg-cyan-900 text-cyan-300 px-1.5 py-0.5 rounded">Change</span>
+                } @else {
+                    <span class="text-xs text-gray-500">+ Select</span>
+                }
+            </button>
         </div>
 
         <div class="flex-1 overflow-y-auto p-4 space-y-3 custom-scroll">
@@ -168,21 +199,44 @@ import { FormsModule } from '@angular/forms';
 
         <div class="p-5 bg-gray-900 border-t border-gray-700 rounded-b-2xl space-y-3">
           <!-- Discount Row -->
-          <div class="flex justify-between items-center text-sm">
-              <span class="text-gray-400">စုစုပေါင်း (Subtotal)</span>
-              <span class="text-white font-mono">{{ posService.convertPrice(posService.cartSubTotalMMK()) | number }}</span>
-          </div>
-          <div class="flex justify-between items-center text-sm">
+           <div class="flex justify-between items-center text-sm">
               <button (click)="toggleDiscount()" class="text-cyan-400 hover:text-cyan-300 text-xs border-b border-dashed border-cyan-500">
                   Discount (လျှော့ဈေး) {{ posService.cartDiscount() > 0 ? 'Edit' : 'Add' }}
               </button>
               <span class="text-red-400 font-mono">- {{ posService.convertPrice(posService.cartDiscount()) | number }}</span>
           </div>
-          
-          <div class="flex justify-between items-center pt-2 border-t border-gray-700">
-            <span class="text-lg font-bold text-gray-200">ကျသင့်ငွေ</span>
-            <span class="text-2xl font-bold text-cyan-400">{{ posService.convertPrice(posService.cartTotalMMK()) | number }} {{ posService.getCurrencySymbol() }}</span>
+
+          <!-- Total in ALL Currencies (UPDATED) -->
+          <div class="bg-gray-800 p-2 rounded-lg border border-gray-700">
+              <!-- Active Currency (Large) -->
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-sm font-bold text-gray-400">Total ({{posService.activeCurrency()}})</span>
+                <span class="text-2xl font-bold text-cyan-400">{{ posService.convertPrice(posService.cartTotalMMK()) | number }} {{ posService.getCurrencySymbol() }}</span>
+              </div>
+              
+              <!-- Other Currencies (Flexible Layout) -->
+              <div class="flex flex-wrap gap-x-4 gap-y-1 pt-1 border-t border-gray-700/50">
+                  @if (posService.activeCurrency() !== 'MMK') {
+                    <div class="flex items-center gap-1 text-xs">
+                        <span class="text-gray-500">MMK:</span>
+                        <span class="text-gray-300 font-mono">{{ posService.cartTotalMMK() | number }} Ks</span>
+                    </div>
+                  }
+                  @if (posService.activeCurrency() !== 'THB') {
+                    <div class="flex items-center gap-1 text-xs">
+                        <span class="text-gray-500">THB:</span>
+                        <span class="text-gray-300 font-mono">{{ getConvertedTotal('THB') | number }} ฿</span>
+                    </div>
+                  }
+                  @if (posService.activeCurrency() !== 'CNY') {
+                    <div class="flex items-center gap-1 text-xs">
+                        <span class="text-gray-500">CNY:</span>
+                        <span class="text-gray-300 font-mono">{{ getConvertedTotal('CNY') | number }} ¥</span>
+                    </div>
+                  }
+              </div>
           </div>
+          
           <button (click)="showPaymentModal.set(true)" [disabled]="posService.cart().length === 0" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:from-gray-700 disabled:to-gray-800 disabled:text-gray-500 text-white font-bold py-4 rounded-xl shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2">
             <span>ငွေချေမည်</span>
           </button>
@@ -191,16 +245,114 @@ import { FormsModule } from '@angular/forms';
 
       <!-- --- MODALS --- -->
 
+      <!-- RATE EDIT MODAL (UPDATED) -->
+      @if (showRateModal()) {
+          <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+              <div class="bg-gray-800 rounded-xl p-6 w-full max-w-lg border border-gray-700 shadow-2xl">
+                  <h3 class="text-white font-bold mb-4 flex items-center gap-2 text-lg">
+                      <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                      ငွေလဲလှယ်နှုန်းများ (Exchange Rates)
+                  </h3>
+
+                  <!-- Main Edit Section -->
+                  <div class="bg-gray-900 p-4 rounded-lg mb-4 space-y-3 border border-gray-700">
+                      <h4 class="text-xs text-gray-400 font-bold uppercase">Basic Settings (အခြေခံ သတ်မှတ်ချက်)</h4>
+                      <div class="flex items-center justify-between">
+                          <label class="text-sm text-gray-300">1 THB (ဘတ်) = ? Kyat</label>
+                          <input type="number" [ngModel]="posService.exchangeRates().THB" (ngModelChange)="updateRate('THB', $event)" class="w-24 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-right focus:ring-1 focus:ring-cyan-500 outline-none">
+                      </div>
+                      <div class="flex items-center justify-between">
+                          <label class="text-sm text-gray-300">1 CNY (ယွမ်) = ? Kyat</label>
+                          <input type="number" [ngModel]="posService.exchangeRates().CNY" (ngModelChange)="updateRate('CNY', $event)" class="w-24 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-right focus:ring-1 focus:ring-cyan-500 outline-none">
+                      </div>
+                  </div>
+
+                  <!-- Cross Rates Display (Detailed) -->
+                  <div class="mb-6">
+                      <h4 class="text-xs font-bold text-gray-400 uppercase mb-3 border-b border-gray-700 pb-2">အပြန်အလှန်နှုန်းများ (Reference Table)</h4>
+                      
+                      <!-- Table Header -->
+                      <div class="grid grid-cols-3 text-[10px] text-gray-500 font-bold mb-2 uppercase">
+                          <div>From Unit</div>
+                          <div>To Currency A</div>
+                          <div>To Currency B</div>
+                      </div>
+
+                      <div class="space-y-2 text-sm font-mono">
+                           <!-- THB Base -->
+                           <div class="grid grid-cols-3 items-center bg-gray-700/30 p-2 rounded">
+                               <div class="text-white font-bold">1 THB</div>
+                               <div class="text-gray-300">{{ posService.exchangeRates().THB }} MMK</div>
+                               <div class="text-cyan-400">{{ calculateCrossRate('THB', 'CNY') | number:'1.2-2' }} CNY</div>
+                           </div>
+                           <!-- CNY Base -->
+                           <div class="grid grid-cols-3 items-center bg-gray-700/30 p-2 rounded">
+                               <div class="text-white font-bold">1 CNY</div>
+                               <div class="text-gray-300">{{ posService.exchangeRates().CNY }} MMK</div>
+                               <div class="text-cyan-400">{{ calculateCrossRate('CNY', 'THB') | number:'1.2-2' }} THB</div>
+                           </div>
+                           <!-- MMK Base (Large Amount) -->
+                           <div class="grid grid-cols-3 items-center bg-gray-700/30 p-2 rounded">
+                               <div class="text-white font-bold">10,000 MMK</div>
+                               <div class="text-yellow-400">{{ calculateMMKToForeign(10000, 'THB') | number:'1.0-0' }} THB</div>
+                               <div class="text-yellow-400">{{ calculateMMKToForeign(10000, 'CNY') | number:'1.0-0' }} CNY</div>
+                           </div>
+                      </div>
+                      <p class="text-[10px] text-gray-500 mt-2 italic">* အပြန်အလှန်နှုန်းထားများကို MMK ပေါက်ဈေးပေါ်မူတည်၍ အလိုအလျောက် တွက်ချက်ထားပါသည်။</p>
+                  </div>
+                  
+                  <button (click)="showRateModal.set(false)" class="w-full py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-bold transition-colors">ပိတ်မည်</button>
+              </div>
+          </div>
+      }
+
       <!-- DISCOUNT MODAL -->
       @if (showDiscountModal()) {
           <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
               <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm border border-gray-700">
                   <h3 class="text-white font-bold mb-4">လျှော့ဈေး သတ်မှတ်ပါ (MMK)</h3>
+                  <div class="flex gap-2 mb-4">
+                      <button (click)="setQuickDiscount(0.05)" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-xs">5%</button>
+                      <button (click)="setQuickDiscount(0.10)" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-xs">10%</button>
+                      <button (click)="setQuickDiscount(0.20)" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-xs">20%</button>
+                  </div>
                   <input type="number" [(ngModel)]="tempDiscount" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white mb-4 focus:ring-2 focus:ring-cyan-500 outline-none">
                   <div class="flex gap-3">
                       <button (click)="showDiscountModal.set(false)" class="flex-1 py-2 bg-gray-700 rounded-lg text-white">Cancel</button>
                       <button (click)="applyDiscount()" class="flex-1 py-2 bg-cyan-600 rounded-lg text-white font-bold">Apply</button>
                   </div>
+              </div>
+          </div>
+      }
+
+      <!-- CUSTOMER SELECTION MODAL -->
+      @if (showCustomerModal()) {
+          <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+              <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700 h-[60vh] flex flex-col">
+                  <h3 class="text-white font-bold mb-4">Select Customer</h3>
+                  
+                  <!-- List -->
+                  <div class="flex-1 overflow-y-auto custom-scroll space-y-2 mb-4">
+                      <button (click)="selectCustomer(null)" class="w-full text-left p-3 rounded-lg border hover:border-cyan-500 transition-colors" [class]="!posService.selectedCustomerId() ? 'bg-cyan-900/30 border-cyan-500' : 'bg-gray-900 border-gray-700'">
+                          <div class="text-white font-bold">General Customer</div>
+                          <div class="text-xs text-gray-500">No debt tracking</div>
+                      </button>
+                      @for (cust of posService.customers(); track cust.id) {
+                          <button (click)="selectCustomer(cust)" class="w-full text-left p-3 rounded-lg border hover:border-cyan-500 transition-colors" [class]="posService.selectedCustomerId() === cust.id ? 'bg-cyan-900/30 border-cyan-500' : 'bg-gray-900 border-gray-700'">
+                              <div class="flex justify-between">
+                                  <div class="text-white font-bold">{{ cust.name }}</div>
+                                  <div class="text-xs font-mono" [class.text-red-400]="cust.totalDebt > 0" [class.text-green-400]="cust.totalDebt === 0">
+                                      {{ cust.totalDebt > 0 ? 'Debt: ' + (cust.totalDebt | number) : 'No Debt' }}
+                                  </div>
+                              </div>
+                              <div class="text-xs text-gray-500">{{ cust.phone }}</div>
+                          </button>
+                      }
+                      @if(posService.customers().length === 0) {
+                          <div class="text-center py-4 text-gray-500 text-sm">No customers found. Add in Dashboard.</div>
+                      }
+                  </div>
+                  <button (click)="showCustomerModal.set(false)" class="w-full py-2 bg-gray-700 rounded-lg text-white">Cancel</button>
               </div>
           </div>
       }
@@ -259,13 +411,23 @@ import { FormsModule } from '@angular/forms';
                           <span class="text-gray-400">Wave Pay</span>
                           <span class="text-yellow-400 font-mono font-bold">{{ posService.dailySalesSummary().wave | number }} Ks</span>
                       </div>
+                      <div class="flex justify-between items-center p-3 bg-gray-900 rounded-lg border border-red-900/50">
+                          <span class="text-red-300">Credit (အကြွေး)</span>
+                          <span class="text-red-400 font-mono font-bold">{{ posService.dailySalesSummary().credit | number }} Ks</span>
+                      </div>
                       <div class="flex justify-between items-center pt-2 border-t border-gray-600">
                           <span class="text-white font-bold">Total Sales</span>
                           <span class="text-cyan-400 font-mono font-bold text-lg">{{ posService.dailySalesSummary().total | number }} Ks</span>
                       </div>
                        <div class="flex justify-between items-center pt-1">
-                          <span class="text-gray-400 text-sm">Total Profit (အမြတ်)</span>
-                          <span class="text-green-500 font-mono font-bold text-md">+{{ posService.dailySalesSummary().profit | number }} Ks</span>
+                          <span class="text-gray-400 text-sm">Expenses (အသုံးစရိတ်)</span>
+                          <span class="text-red-400 font-mono font-bold text-md">-{{ posService.dailySalesSummary().expenses | number }} Ks</span>
+                      </div>
+                       <div class="flex justify-between items-center pt-1 border-t border-gray-700">
+                          <span class="text-gray-400 text-sm">Net Profit (အသားတင်အမြတ်)</span>
+                          <span class="font-mono font-bold text-md" [class.text-green-400]="posService.dailySalesSummary().netProfit >= 0" [class.text-red-400]="posService.dailySalesSummary().netProfit < 0">
+                              {{ posService.dailySalesSummary().netProfit | number }} Ks
+                          </span>
                       </div>
                       <p class="text-center text-xs text-gray-500">Total Transactions: {{ posService.dailySalesSummary().count }}</p>
                   </div>
@@ -280,7 +442,7 @@ import { FormsModule } from '@angular/forms';
           <div class="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn print:hidden">
               <div class="bg-gray-800 rounded-2xl p-6 w-full max-w-lg border border-gray-700 shadow-2xl">
                   <h2 class="text-xl font-bold text-white mb-6 text-center">ငွေချေစနစ် ရွေးချယ်ပါ</h2>
-                  <div class="grid grid-cols-3 gap-4 mb-6">
+                  <div class="grid grid-cols-2 gap-4 mb-6">
                       <button (click)="selectPayment('Cash')" [class]="selectedPayment() === 'Cash' ? 'bg-green-600 ring-2 ring-white' : 'bg-gray-700 hover:bg-gray-600'" class="p-4 rounded-xl flex flex-col items-center gap-2 transition-all">
                           <span class="text-3xl">💵</span><span class="font-bold text-white">လက်ငင်း</span>
                       </button>
@@ -290,8 +452,20 @@ import { FormsModule } from '@angular/forms';
                       <button (click)="selectPayment('Wave Pay')" [class]="selectedPayment() === 'Wave Pay' ? 'bg-yellow-500 ring-2 ring-white' : 'bg-gray-700 hover:bg-gray-600'" class="p-4 rounded-xl flex flex-col items-center gap-2 transition-all">
                            <div class="w-8 h-8 rounded bg-white flex items-center justify-center font-bold text-yellow-600">W</div><span class="font-bold text-white">Wave Pay</span>
                       </button>
+                      <!-- Credit Button -->
+                      <button 
+                        (click)="selectPayment('Credit')" 
+                        [disabled]="!posService.selectedCustomerId()"
+                        [class]="selectedPayment() === 'Credit' ? 'bg-red-600 ring-2 ring-white' : 'bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed'" 
+                        class="p-4 rounded-xl flex flex-col items-center gap-2 transition-all relative">
+                           <div class="w-8 h-8 rounded bg-white flex items-center justify-center font-bold text-red-600">C</div>
+                           <span class="font-bold text-white">အကြွေး</span>
+                           @if(!posService.selectedCustomerId()) {
+                               <span class="absolute top-2 right-2 text-[10px] text-red-300 bg-red-900/50 px-1 rounded">No Cust</span>
+                           }
+                      </button>
                   </div>
-                  @if (selectedPayment() !== 'Cash') {
+                  @if (selectedPayment() !== 'Cash' && selectedPayment() !== 'Credit') {
                       <div class="flex flex-col items-center mb-6 animate-fadeIn">
                           <div class="bg-white p-2 rounded-lg">
                               <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=DemoPayment" class="w-32 h-32" alt="QR Code">
@@ -299,6 +473,12 @@ import { FormsModule } from '@angular/forms';
                           <p class="text-sm text-cyan-400 mt-2">Scan to Pay</p>
                       </div>
                   }
+                  @if (selectedPayment() === 'Credit') {
+                       <div class="flex flex-col items-center mb-6 animate-fadeIn text-red-400 bg-red-900/20 p-3 rounded-lg border border-red-800">
+                          <p class="text-sm">ဤဘေလ်ကို <b>{{ selectedCustomerName() }}</b> ၏ အကြွေးစာရင်းသို့ ထည့်သွင်းပါမည်။</p>
+                      </div>
+                  }
+
                   <div class="text-center mb-6">
                       <p class="text-gray-400 mb-1">ကျသင့်ငွေ</p>
                       <p class="text-3xl font-bold text-white">{{ posService.convertPrice(posService.cartTotalMMK()) | number }} {{ posService.getCurrencySymbol() }}</p>
@@ -403,7 +583,10 @@ import { FormsModule } from '@angular/forms';
                   <div class="text-[10px] font-mono mb-2 flex flex-col gap-0.5">
                       <div class="flex justify-between"><span>Date:</span> <span>{{ lastOrder()!.date | date:'dd/MM/yy HH:mm' }}</span></div>
                       <div class="flex justify-between"><span>Invoice:</span> <span>{{ lastOrder()!.id }}</span></div>
-                      <div class="flex justify-between"><span>Payment:</span> <span class="uppercase">{{ lastOrder()!.paymentMethod }}</span></div>
+                      <div class="flex justify-between"><span>Payment:</span> <span class="uppercase font-bold">{{ lastOrder()!.paymentMethod }}</span></div>
+                      @if (lastOrder()!.customerId) {
+                          <div class="flex justify-between"><span>Customer:</span> <span>{{ getCustomerName(lastOrder()!.customerId!) }}</span></div>
+                      }
                   </div>
 
                   <!-- Items -->
@@ -438,6 +621,27 @@ import { FormsModule } from '@angular/forms';
                           <span>TOTAL:</span>
                           <span>{{ posService.convertPrice(lastOrder()!.total) | number }} {{ posService.getCurrencySymbol() }}</span>
                       </div>
+                       <!-- Dual Currency Display on Receipt for Reference -->
+                      @if (posService.activeCurrency() !== 'MMK') {
+                          <div class="flex justify-between text-[9px] text-gray-500 mt-0.5">
+                              <span>(MMK Approx):</span>
+                              <span>{{ lastOrder()!.total | number }} Ks</span>
+                          </div>
+                      } @else {
+                          <!-- If MMK, show THB/CNY reference if configured -->
+                          @if (posService.exchangeRates().THB > 1) {
+                             <div class="flex justify-between text-[9px] text-gray-500 mt-0.5">
+                                  <span>(THB Approx):</span>
+                                  <span>{{ calculateMMKToForeign(lastOrder()!.total, 'THB') | number:'1.0-0' }} ฿</span>
+                              </div>
+                          }
+                      }
+                      
+                      @if (lastOrder()!.paymentMethod === 'Credit') {
+                          <div class="text-center font-bold text-[10px] mt-1 border-2 border-black p-1">
+                              အကြွေးစာရင်းသွင်းပြီး
+                          </div>
+                      }
                   </div>
 
                   <!-- Footer -->
@@ -449,7 +653,7 @@ import { FormsModule } from '@angular/forms';
                   <!-- Actions -->
                   <div class="grid grid-cols-2 gap-2 mt-4 print:hidden">
                     <button (click)="printReceipt()" class="bg-gray-900 text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-gray-800">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2-2v4h10z"></path></svg>
                         PRINT
                     </button>
                     <button (click)="lastOrder.set(null)" class="bg-gray-200 text-gray-800 py-2 rounded text-xs font-bold hover:bg-gray-300">
@@ -473,6 +677,7 @@ export class PosTerminalComponent {
   posService = inject(PosService);
   searchTerm = signal('');
   selectedCategory = signal('All');
+  filterLowStock = signal(false); // New Filter State
   todayDate = new Date();
 
   // Modal States
@@ -483,9 +688,14 @@ export class PosTerminalComponent {
   showDiscountModal = signal(false);
   showParkedModal = signal(false);
   showReportModal = signal(false);
+  showCustomerModal = signal(false);
+  
+  // Rate Edit Modal State
+  showRateModal = signal(false);
+  tempRate = 0;
   
   lastOrder = signal<Order | null>(null);
-  selectedPayment = signal<'Cash' | 'KBZ Pay' | 'Wave Pay'>('Cash');
+  selectedPayment = signal<'Cash' | 'KBZ Pay' | 'Wave Pay' | 'Credit'>('Cash');
   tempDiscount = 0;
 
   // Form Models
@@ -499,13 +709,23 @@ export class PosTerminalComponent {
 
   @ViewChild('barcodeInput') barcodeInput!: ElementRef;
 
+  selectedCustomerName = computed(() => {
+      const id = this.posService.selectedCustomerId();
+      if(!id) return null;
+      return this.posService.customers().find(c => c.id === id)?.name;
+  });
+
   filteredProducts = computed(() => {
     const term = this.searchTerm().toLowerCase();
     const category = this.selectedCategory();
+    const showLowStock = this.filterLowStock();
+
     return this.posService.products().filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(term) || p.barcode.includes(term);
       const matchesCategory = category === 'All' || p.category === category;
-      return matchesSearch && matchesCategory;
+      const matchesLowStock = !showLowStock || p.stock < 5; // Low stock threshold 5
+
+      return matchesSearch && matchesCategory && matchesLowStock;
     });
   });
 
@@ -531,7 +751,7 @@ export class PosTerminalComponent {
   }
 
   setCurrency(curr: 'MMK' | 'THB' | 'CNY') { this.posService.activeCurrency.set(curr); }
-  selectPayment(method: 'Cash' | 'KBZ Pay' | 'Wave Pay') { this.selectedPayment.set(method); }
+  selectPayment(method: 'Cash' | 'KBZ Pay' | 'Wave Pay' | 'Credit') { this.selectedPayment.set(method); }
 
   processPayment() {
       this.speakTotal();
@@ -542,6 +762,7 @@ export class PosTerminalComponent {
           this.selectedPayment.set('Cash');
           // Clear discount after sale
           this.posService.setDiscount(0);
+          this.posService.selectedCustomerId.set(null); // Reset customer
       }
   }
 
@@ -551,10 +772,24 @@ export class PosTerminalComponent {
       this.showDiscountModal.set(true);
   }
 
+  setQuickDiscount(percentage: number) {
+      const subtotal = this.posService.cartSubTotalMMK();
+      this.tempDiscount = Math.floor(subtotal * percentage);
+  }
+
   applyDiscount() {
       if(this.tempDiscount < 0) this.tempDiscount = 0;
       this.posService.setDiscount(this.tempDiscount);
       this.showDiscountModal.set(false);
+  }
+
+  selectCustomer(cust: Customer | null) {
+      this.posService.selectCustomerForCart(cust ? cust.id : null);
+      this.showCustomerModal.set(false);
+  }
+  
+  getCustomerName(id: number): string {
+      return this.posService.customers().find(c => c.id === id)?.name || 'Unknown';
   }
 
   parkCurrentOrder() {
@@ -569,6 +804,44 @@ export class PosTerminalComponent {
       }
       this.posService.retrieveOrder(id);
       this.showParkedModal.set(false);
+  }
+  
+  // Rate Edit Logic
+  openRateModal() {
+      // Just open modal, user can see/edit all
+      this.showRateModal.set(true);
+  }
+
+  updateRate(currency: 'THB' | 'CNY', val: number) {
+      if (val > 0) {
+          this.posService.updateExchangeRate(currency, val);
+      }
+  }
+  
+  saveRate() {
+      this.showRateModal.set(false);
+  }
+  
+  // Helper to calculate cross rates dynamically based on MMK base
+  calculateCrossRate(from: 'THB' | 'CNY', to: 'THB' | 'CNY'): number {
+      const rates = this.posService.exchangeRates();
+      // e.g. 1 CNY (450 MMK) -> ? THB (100 MMK)
+      // 450 / 100 = 4.5
+      return rates[from] / rates[to];
+  }
+
+  // New helper in component
+  calculateMMKToForeign(amount: number, currency: 'THB' | 'CNY'): number {
+      const rate = this.posService.exchangeRates()[currency];
+      if(!rate) return 0;
+      return amount / rate;
+  }
+  
+  // Helper for footer display
+  getConvertedTotal(targetCurrency: 'THB' | 'CNY'): number {
+      const mmkTotal = this.posService.cartTotalMMK();
+      const rate = this.posService.exchangeRates()[targetCurrency];
+      return Math.ceil(mmkTotal / rate);
   }
 
   playBeep() {
