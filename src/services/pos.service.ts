@@ -4,9 +4,10 @@ export interface Product {
   id: number;
   barcode: string;
   name: string;
-  price: number;
+  price: number; // Selling Price
+  cost: number;  // Buying Price (For Profit Calc)
   category: string;
-  image: string; // Base64 string or URL
+  image: string;
   stock: number;
 }
 
@@ -22,6 +23,8 @@ export interface Order {
   subtotal: number;
   discount: number;
   total: number;
+  totalCost: number; // Total Buying Price
+  totalProfit: number; // Profit for this order
   paymentMethod: 'Cash' | 'KBZ Pay' | 'Wave Pay';
   currency: 'MMK' | 'THB' | 'CNY';
 }
@@ -31,6 +34,13 @@ export interface ParkedOrder {
   timestamp: Date;
   items: CartItem[];
   note: string;
+}
+
+export interface ShopConfig {
+  name: string;
+  address: string;
+  phone: string;
+  footerMessage: string;
 }
 
 @Injectable({
@@ -45,20 +55,30 @@ export class PosService {
 
   // Mock initial data
   private initialProducts: Product[] = [
-    { id: 1, barcode: '8850123', name: 'Royal D', price: 500, category: 'Drinks', image: 'https://picsum.photos/200/200?random=1', stock: 50 },
-    { id: 2, barcode: '8850124', name: 'Myanmar Beer', price: 2500, category: 'Drinks', image: 'https://picsum.photos/200/200?random=2', stock: 24 },
+    { id: 1, barcode: '8850123', name: 'Royal D', price: 500, cost: 350, category: 'Drinks', image: 'https://picsum.photos/200/200?random=1', stock: 50 },
+    { id: 2, barcode: '8850124', name: 'Myanmar Beer', price: 2500, cost: 2100, category: 'Drinks', image: 'https://picsum.photos/200/200?random=2', stock: 24 },
   ];
+
+  // Shop Configuration
+  shopInfo = signal<ShopConfig>({
+      name: 'FUTURE WORLD',
+      address: 'Yangon, Myanmar',
+      phone: '09-123456789',
+      footerMessage: 'Thank You! See you again.'
+  });
+
+  // Dynamic Categories
+  categories = signal<string[]>(['Drinks', 'Food', 'Stationery', 'Other']);
 
   products = signal<Product[]>([]);
   cart = signal<CartItem[]>([]);
   orders = signal<Order[]>([]);
-  parkedOrders = signal<ParkedOrder[]>([]); // For Hold Bill feature
+  parkedOrders = signal<ParkedOrder[]>([]);
   activeCurrency = signal<'MMK' | 'THB' | 'CNY'>('MMK');
   
-  // Discount State
-  cartDiscount = signal<number>(0); // Amount in MMK
+  cartDiscount = signal<number>(0); 
   
-  // --- Licensing & Security Logic ---
+  // Licensing
   enteredLicense = signal<string>(localStorage.getItem('fw_entered_license') || '');
   requiredLicense = signal<string>(localStorage.getItem('fw_target_license') || 'FUTURE-2025');
   adminPassword = signal<string>(localStorage.getItem('fw_admin_pass') || 'MasterSaiYan');
@@ -72,6 +92,8 @@ export class PosService {
     effect(() => localStorage.setItem('fw_products', JSON.stringify(this.products())));
     effect(() => localStorage.setItem('fw_orders', JSON.stringify(this.orders())));
     effect(() => localStorage.setItem('fw_parked', JSON.stringify(this.parkedOrders())));
+    effect(() => localStorage.setItem('fw_categories', JSON.stringify(this.categories())));
+    effect(() => localStorage.setItem('fw_shop_info', JSON.stringify(this.shopInfo())));
     
     // Security persistence
     effect(() => localStorage.setItem('fw_entered_license', this.enteredLicense()));
@@ -83,17 +105,25 @@ export class PosService {
     const p = localStorage.getItem('fw_products');
     const o = localStorage.getItem('fw_orders');
     const park = localStorage.getItem('fw_parked');
+    const cats = localStorage.getItem('fw_categories');
+    const shop = localStorage.getItem('fw_shop_info');
     
     if (p) this.products.set(JSON.parse(p));
     else this.products.set(this.initialProducts);
 
     if (o) this.orders.set(JSON.parse(o));
     if (park) this.parkedOrders.set(JSON.parse(park));
+    if (cats) this.categories.set(JSON.parse(cats));
+    if (shop) this.shopInfo.set(JSON.parse(shop));
   }
 
   // --- Calculations ---
   cartSubTotalMMK = computed(() => {
     return this.cart().reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
+  });
+
+  cartTotalCostMMK = computed(() => {
+      return this.cart().reduce((acc, item) => acc + (item.product.cost * item.quantity), 0);
   });
 
   cartTotalMMK = computed(() => {
@@ -113,7 +143,13 @@ export class PosService {
         .reduce((acc, order) => acc + order.total, 0);
   });
   
-  // Get sales breakdown by payment method for today
+  totalProfitToday = computed(() => {
+      const today = new Date().toDateString();
+      return this.orders()
+        .filter(o => new Date(o.date).toDateString() === today)
+        .reduce((acc, order) => acc + (order.totalProfit || 0), 0);
+  });
+
   dailySalesSummary = computed(() => {
       const today = new Date().toDateString();
       const todayOrders = this.orders().filter(o => new Date(o.date).toDateString() === today);
@@ -123,6 +159,7 @@ export class PosService {
           kbz: todayOrders.filter(o => o.paymentMethod === 'KBZ Pay').reduce((acc, o) => acc + o.total, 0),
           wave: todayOrders.filter(o => o.paymentMethod === 'Wave Pay').reduce((acc, o) => acc + o.total, 0),
           total: todayOrders.reduce((acc, o) => acc + o.total, 0),
+          profit: todayOrders.reduce((acc, o) => acc + (o.totalProfit || 0), 0),
           count: todayOrders.length
       };
   });
@@ -209,7 +246,6 @@ export class PosService {
   retrieveOrder(parkedId: number) {
       const parked = this.parkedOrders().find(p => p.id === parkedId);
       if (parked) {
-          // If cart not empty, prevent overwrite or merge? Let's overwrite for simplicity but warn in UI
           this.cart.set(parked.items);
           this.parkedOrders.update(p => p.filter(i => i.id !== parkedId));
       }
@@ -224,12 +260,19 @@ export class PosService {
     const currentCart = this.cart();
     if (currentCart.length === 0) return null;
 
+    const totalSale = this.cartTotalMMK();
+    const totalCost = this.cartTotalCostMMK();
+    // Profit = (Total Sale - Discount) - Cost
+    // Note: Discount cuts into profit.
+    const totalProfit = totalSale - totalCost;
+
     // Deduct Stock
     this.products.update(allProducts => {
         return allProducts.map(p => {
             const cartItem = currentCart.find(c => c.product.id === p.id);
             if (cartItem) {
-                return { ...p, stock: Math.max(0, p.stock - cartItem.quantity) };
+                const newStock = Math.max(0, p.stock - cartItem.quantity);
+                return { ...p, stock: newStock };
             }
             return p;
         });
@@ -241,7 +284,9 @@ export class PosService {
       items: currentCart,
       subtotal: this.cartSubTotalMMK(),
       discount: this.cartDiscount(),
-      total: this.cartTotalMMK(),
+      total: totalSale,
+      totalCost: totalCost,
+      totalProfit: totalProfit,
       paymentMethod,
       currency: 'MMK'
     };
@@ -271,19 +316,32 @@ export class PosService {
       this.orders.update(orders => orders.filter(o => o.id !== orderId));
   }
 
-  // --- Product Management ---
+  // --- Product & Category & Shop Management ---
+  updateShopInfo(info: ShopConfig) {
+      this.shopInfo.set(info);
+  }
 
-  addNewProduct(name: string, price: number, category: string, barcode: string, stock: number, imageBase64: string) {
+  addNewCategory(categoryName: string) {
+      const trimmed = categoryName.trim();
+      if (trimmed && !this.categories().includes(trimmed)) {
+          this.categories.update(c => [...c, trimmed]);
+      }
+  }
+
+  addNewProduct(name: string, price: number, cost: number, category: string, barcode: string, stock: number, imageBase64: string) {
     if (!this.isProVersion() && this.products().length >= 5) {
         alert("Free Version တွင် ပစ္စည်း ၅ မျိုးသာ ထည့်သွင်းခွင့်ရှိသည်။ အကန့်အသတ်မရှိသုံးရန် လိုင်စင်ဝယ်ယူပါ။");
         return;
     }
+
+    this.addNewCategory(category);
 
     const newProduct: Product = {
         id: Date.now(),
         barcode: barcode || Date.now().toString(),
         name,
         price,
+        cost,
         category,
         stock,
         image: imageBase64 || `https://picsum.photos/200/200?random=${Date.now()}`
@@ -292,6 +350,7 @@ export class PosService {
   }
 
   updateProduct(updatedProduct: Product) {
+      this.addNewCategory(updatedProduct.category);
       this.products.update(products => 
         products.map(p => p.id === updatedProduct.id ? updatedProduct : p)
       );
@@ -306,7 +365,6 @@ export class PosService {
   }
 
   // --- Admin & Security Management ---
-
   attemptActivation(key: string): boolean {
       if (key === this.requiredLicense()) {
           this.enteredLicense.set(key);
@@ -329,8 +387,10 @@ export class PosService {
       const data = {
           products: this.products(),
           orders: this.orders(),
+          categories: this.categories(),
+          shopInfo: this.shopInfo(),
           license: this.enteredLicense(),
-          version: '1.1'
+          version: '1.3'
       };
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
       const url = window.URL.createObjectURL(blob);
@@ -350,6 +410,8 @@ export class PosService {
                   if (data.products && data.orders) {
                       this.products.set(data.products);
                       this.orders.set(data.orders);
+                      if(data.categories) this.categories.set(data.categories);
+                      if(data.shopInfo) this.shopInfo.set(data.shopInfo);
                       if(data.license) this.enteredLicense.set(data.license);
                       resolve(true);
                   } else {

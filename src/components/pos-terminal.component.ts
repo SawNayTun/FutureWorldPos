@@ -55,13 +55,22 @@ import { FormsModule } from '@angular/forms';
             </div>
           
           <div class="flex flex-col md:flex-row justify-between gap-3 items-center">
-              <!-- Category Tabs -->
+              <!-- Category Tabs (Dynamic) -->
               <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar w-full md:w-auto">
-                <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'All' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('All')">အားလုံး</button>
-                <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'Drinks' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('Drinks')">အချိုရည်</button>
-                <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'Food' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('Food')">အစားအစာ</button>
-                <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'Stationery' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('Stationery')">စာရေးကိရိယာ</button>
-                <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'Other' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('Other')">အခြား</button>
+                <button 
+                    class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" 
+                    [class]="selectedCategory() === 'All' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" 
+                    (click)="selectedCategory.set('All')">
+                    အားလုံး
+                </button>
+                @for (cat of posService.categories(); track cat) {
+                    <button 
+                        class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" 
+                        [class]="selectedCategory() === cat ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" 
+                        (click)="selectedCategory.set(cat)">
+                        {{ cat }}
+                    </button>
+                }
               </div>
 
               <!-- Currency Switcher -->
@@ -85,8 +94,8 @@ import { FormsModule } from '@angular/forms';
                 <div class="absolute top-1 right-1 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] font-bold text-white z-10 border border-gray-600 shadow-sm">
                   {{ posService.convertPrice(product.price) | number }}
                 </div>
-                 <div class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold z-10 shadow-sm" [class]="product.stock === 0 ? 'bg-red-500/90 text-white' : (product.stock < 10 ? 'bg-yellow-500/90 text-black' : 'bg-gray-800/90 text-gray-300 border border-gray-600')">
-                   {{ product.stock === 0 ? 'ပစ္စည်းကုန်' : 'လက်ကျန်: ' + product.stock }}
+                 <div class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold z-10 shadow-sm" [class]="product.stock === 0 ? 'bg-red-500/90 text-white' : (product.stock < 5 ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-800/90 text-gray-300 border border-gray-600')">
+                   {{ product.stock === 0 ? 'ပစ္စည်းကုန်' : (product.stock < 5 ? 'Low: ' + product.stock : 'Stock: ' + product.stock) }}
                 </div>
               </div>
 
@@ -254,6 +263,10 @@ import { FormsModule } from '@angular/forms';
                           <span class="text-white font-bold">Total Sales</span>
                           <span class="text-cyan-400 font-mono font-bold text-lg">{{ posService.dailySalesSummary().total | number }} Ks</span>
                       </div>
+                       <div class="flex justify-between items-center pt-1">
+                          <span class="text-gray-400 text-sm">Total Profit (အမြတ်)</span>
+                          <span class="text-green-500 font-mono font-bold text-md">+{{ posService.dailySalesSummary().profit | number }} Ks</span>
+                      </div>
                       <p class="text-center text-xs text-gray-500">Total Transactions: {{ posService.dailySalesSummary().count }}</p>
                   </div>
                   
@@ -337,24 +350,30 @@ import { FormsModule } from '@angular/forms';
                       </div>
                       <div class="flex gap-4">
                         <div class="flex-1">
-                            <label class="block text-sm text-gray-400 mb-1">ဈေးနှုန်း (MMK)</label>
+                            <label class="block text-sm text-gray-400 mb-1">အရောင်းဈေး (Selling)</label>
                             <input type="number" [(ngModel)]="modalProductPrice" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
                         </div>
                         <div class="flex-1">
-                            <label class="block text-sm text-gray-400 mb-1">လက်ကျန် (Stock)</label>
-                            <input type="number" [(ngModel)]="modalProductStock" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
+                            <label class="block text-sm text-gray-400 mb-1">အရင်းဈေး (Cost)</label>
+                            <input type="number" [(ngModel)]="modalProductCost" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
                         </div>
                       </div>
                       <div>
-                          <label class="block text-sm text-gray-400 mb-1">အမျိုးအစား</label>
-                          <select [(ngModel)]="modalProductCategory" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
-                              <option value="Drinks">Drinks (အချိုရည်)</option>
-                              <option value="Food">Food (အစားအစာ)</option>
-                              <option value="Stationery">Stationery (စာရေးကိရိယာ)</option>
-                              <option value="Kitchen">Kitchen (မီးဖိုချောင်)</option>
-                              <option value="Personal">Personal (လူသုံးကုန်)</option>
-                              <option value="Other">Other (အခြား)</option>
-                          </select>
+                          <label class="block text-sm text-gray-400 mb-1">လက်ကျန် (Stock)</label>
+                          <input type="number" [(ngModel)]="modalProductStock" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
+                      </div>
+                      <div>
+                          <label class="block text-sm text-gray-400 mb-1">အမျိုးအစား (ရွေးပါ သို့မဟုတ် အသစ်ရိုက်ထည့်ပါ)</label>
+                          <input 
+                            list="categoryList" 
+                            [(ngModel)]="modalProductCategory" 
+                            placeholder="Select or type new..."
+                            class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
+                          <datalist id="categoryList">
+                              @for (cat of posService.categories(); track cat) {
+                                  <option [value]="cat"></option>
+                              }
+                          </datalist>
                       </div>
                   </div>
 
@@ -375,9 +394,9 @@ import { FormsModule } from '@angular/forms';
               <div class="bg-white text-black p-4 w-[300px] shadow-2xl relative print:shadow-none print:w-full print:max-w-none">
                   <!-- Header -->
                   <div class="text-center pb-2 mb-2 border-b-2 border-dashed border-gray-300">
-                      <h1 class="text-xl font-bold font-mono">FUTURE WORLD</h1>
-                      <p class="text-[10px] text-gray-500">Yangon, Myanmar</p>
-                      <p class="text-[10px] text-gray-500">Tel: 09-123456789</p>
+                      <h1 class="text-xl font-bold font-mono">{{ posService.shopInfo().name }}</h1>
+                      <p class="text-[10px] text-gray-500">{{ posService.shopInfo().address }}</p>
+                      <p class="text-[10px] text-gray-500">Tel: {{ posService.shopInfo().phone }}</p>
                   </div>
                   
                   <!-- Info -->
@@ -423,8 +442,8 @@ import { FormsModule } from '@angular/forms';
 
                   <!-- Footer -->
                   <div class="text-center text-[10px] font-mono mt-4 border-t border-gray-200 pt-2">
-                      <p>Thank You!</p>
-                      <p>Power by Future World POS</p>
+                      <p>{{ posService.shopInfo().footerMessage }}</p>
+                      <p class="mt-1 opacity-50 text-[8px]">Power by Future World POS</p>
                   </div>
 
                   <!-- Actions -->
@@ -473,6 +492,7 @@ export class PosTerminalComponent {
   modalProductBarcode = '';
   modalProductName = '';
   modalProductPrice = 0;
+  modalProductCost = 0;
   modalProductStock = 0;
   modalProductCategory = 'Other';
   modalProductImage = ''; // For Preview
@@ -494,9 +514,18 @@ export class PosTerminalComponent {
   handleBarcodeScan() {
       const barcode = this.searchTerm();
       if (!barcode) return;
+      
       const success = this.posService.addToCartByBarcode(barcode);
+      
+      // Force clear the input using nativeElement for speed (critical for scanners)
+      if (this.barcodeInput) {
+          this.barcodeInput.nativeElement.value = '';
+          this.barcodeInput.nativeElement.focus();
+      }
+      // Also update the signal
+      this.searchTerm.set('');
+
       if (success) {
-          this.searchTerm.set('');
           this.playBeep();
       }
   }
@@ -580,16 +609,21 @@ export class PosTerminalComponent {
       }
   }
 
-  openProductModal(product?: Product) {
-      if (product) {
+  openProductModal(productData?: Product) {
+      if (productData) {
+          // IMPORTANT: Fetch the latest data from the service to ensure we have current Stock
+          // The productData passed from the template loop might be stale if checkout happened recently
+          const freshProduct = this.posService.products().find(p => p.id === productData.id) || productData;
+
           this.isEditing.set(true);
-          this.editingProductId = product.id;
-          this.modalProductBarcode = product.barcode;
-          this.modalProductName = product.name;
-          this.modalProductPrice = product.price;
-          this.modalProductStock = product.stock;
-          this.modalProductCategory = product.category;
-          this.modalProductImage = product.image;
+          this.editingProductId = freshProduct.id;
+          this.modalProductBarcode = freshProduct.barcode;
+          this.modalProductName = freshProduct.name;
+          this.modalProductPrice = freshProduct.price;
+          this.modalProductCost = freshProduct.cost || 0;
+          this.modalProductStock = freshProduct.stock;
+          this.modalProductCategory = freshProduct.category;
+          this.modalProductImage = freshProduct.image;
       } else {
           // Check limit if adding new
           if (!this.posService.isProVersion() && this.posService.products().length >= 5) {
@@ -601,6 +635,7 @@ export class PosTerminalComponent {
           this.modalProductBarcode = '';
           this.modalProductName = '';
           this.modalProductPrice = 0;
+          this.modalProductCost = 0;
           this.modalProductStock = 0;
           this.modalProductCategory = 'Other';
           this.modalProductImage = '';
@@ -623,6 +658,7 @@ export class PosTerminalComponent {
               id: this.editingProductId,
               name: this.modalProductName,
               price: this.modalProductPrice,
+              cost: this.modalProductCost,
               stock: this.modalProductStock,
               category: this.modalProductCategory,
               barcode: this.modalProductBarcode,
@@ -632,7 +668,8 @@ export class PosTerminalComponent {
       } else {
           this.posService.addNewProduct(
               this.modalProductName, 
-              this.modalProductPrice, 
+              this.modalProductPrice,
+              this.modalProductCost,
               this.modalProductCategory,
               this.modalProductBarcode,
               this.modalProductStock,

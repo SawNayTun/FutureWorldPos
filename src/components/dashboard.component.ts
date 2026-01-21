@@ -25,55 +25,18 @@ import { FormsModule } from '@angular/forms';
         </div>
       </div>
 
-      <!-- Settings & Maintenance Section -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <!-- Licensing (Client Side) -->
-          <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg">
-              <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
-                  License Activation
-              </h2>
-              @if (!posService.isProVersion()) {
-                  <div class="flex gap-2">
-                      <input type="text" [(ngModel)]="inputLicenseKey" placeholder="Enter Product Key" class="flex-1 bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm">
-                      <button (click)="activateLicense()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold">Activate</button>
-                  </div>
-                  <p class="text-xs text-gray-500 mt-2">Contact Admin to get your product key.</p>
-              } @else {
-                  <div class="bg-green-500/10 border border-green-500/30 p-4 rounded-lg flex flex-col gap-1">
-                      <div class="flex items-center gap-2 text-green-400 text-sm font-bold">
-                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                          License Active
-                      </div>
-                      <p class="text-xs text-gray-400">Thank you for supporting Future World!</p>
-                  </div>
-              }
-          </div>
-
-          <!-- Backup & Restore -->
-          <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg">
-               <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <svg class="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
-                  Data Backup
-              </h2>
-              <div class="flex gap-3">
-                  <button (click)="posService.exportData()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg text-sm font-medium border border-gray-600 transition-colors">
-                      Download Backup
-                  </button>
-                  <label class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white py-2 rounded-lg text-sm font-medium cursor-pointer text-center transition-colors">
-                      Restore Data
-                      <input type="file" (change)="handleFileImport($event)" accept=".json" class="hidden">
-                  </label>
-              </div>
-          </div>
-      </div>
-
       <!-- Stats Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg relative overflow-hidden group">
           <div class="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/20 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
           <h3 class="text-gray-400 font-medium mb-1">ဒီနေ့ရောင်းအား</h3>
           <div class="text-3xl font-bold text-white">{{ posService.totalSalesToday() | number }} Ks</div>
+        </div>
+        
+         <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg relative overflow-hidden group">
+          <div class="absolute -right-6 -top-6 w-24 h-24 bg-green-500/20 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
+          <h3 class="text-gray-400 font-medium mb-1">ဒီနေ့ အသားတင်အမြတ်</h3>
+          <div class="text-3xl font-bold text-green-400">+{{ posService.totalProfitToday() | number }} Ks</div>
         </div>
 
         <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg relative overflow-hidden group">
@@ -83,10 +46,71 @@ import { FormsModule } from '@angular/forms';
         </div>
         
         <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg relative overflow-hidden group">
-           <div class="absolute -right-6 -top-6 w-24 h-24 bg-green-500/20 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
+           <div class="absolute -right-6 -top-6 w-24 h-24 bg-yellow-500/20 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
           <h3 class="text-gray-400 font-medium mb-1">ကုန်ပစ္စည်းမျိုးစုံ</h3>
           <div class="text-3xl font-bold text-white">{{ posService.products().length }}</div>
         </div>
+      </div>
+
+      <!-- Settings & Maintenance Section -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <!-- Shop Configuration -->
+          <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg">
+              <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                  ဆိုင် အချက်အလက်များ (Receipt Setup)
+              </h2>
+              <div class="space-y-3">
+                  <div>
+                      <label class="text-xs text-gray-500">Shop Name (ဆိုင်အမည်)</label>
+                      <input type="text" [(ngModel)]="shopName" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white">
+                  </div>
+                   <div>
+                      <label class="text-xs text-gray-500">Phone</label>
+                      <input type="text" [(ngModel)]="shopPhone" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white">
+                  </div>
+                   <div>
+                      <label class="text-xs text-gray-500">Address</label>
+                      <input type="text" [(ngModel)]="shopAddress" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white">
+                  </div>
+                   <div>
+                      <label class="text-xs text-gray-500">Footer Message</label>
+                      <input type="text" [(ngModel)]="shopFooter" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white">
+                  </div>
+                  <button (click)="saveShopSettings()" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-2 rounded font-bold text-sm">Save Shop Info</button>
+              </div>
+          </div>
+
+          <!-- Data Backup & License -->
+          <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg flex flex-col justify-between">
+               <div>
+                   <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                      <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+                      Data System
+                  </h2>
+                  <div class="flex gap-3 mb-6">
+                      <button (click)="posService.exportData()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg text-sm font-medium border border-gray-600 transition-colors">
+                          Download Backup
+                      </button>
+                      <label class="flex-1 bg-green-700 hover:bg-green-600 text-white py-2 rounded-lg text-sm font-medium cursor-pointer text-center transition-colors">
+                          Restore Data
+                          <input type="file" (change)="handleFileImport($event)" accept=".json" class="hidden">
+                      </label>
+                  </div>
+               </div>
+
+               <div>
+                   <h2 class="text-sm font-bold text-gray-400 mb-2">License Key</h2>
+                   @if (!posService.isProVersion()) {
+                      <div class="flex gap-2">
+                          <input type="text" [(ngModel)]="inputLicenseKey" placeholder="Enter Product Key" class="flex-1 bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm">
+                          <button (click)="activateLicense()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold">Activate</button>
+                      </div>
+                   } @else {
+                      <div class="text-green-400 text-sm font-bold border border-green-500/30 bg-green-500/10 p-2 rounded text-center">License Active</div>
+                   }
+               </div>
+          </div>
       </div>
 
       <!-- AI Insight Section -->
@@ -223,10 +247,24 @@ export class DashboardComponent {
   // Client Activation Model
   inputLicenseKey = '';
 
+  // Shop Config Models
+  shopName = '';
+  shopAddress = '';
+  shopPhone = '';
+  shopFooter = '';
+
   // Admin Panel Models
   authAdminPassword = '';
   adminNewLicenseKey = '';
   adminNewPassword = '';
+
+  constructor() {
+      const info = this.posService.shopInfo();
+      this.shopName = info.name;
+      this.shopAddress = info.address;
+      this.shopPhone = info.phone;
+      this.shopFooter = info.footerMessage;
+  }
 
   getOrderItemsSummary(order: any): string {
       return order.items.map((i: any) => i.product.name).join(', ').slice(0, 30) + (order.items.length > 2 ? '...' : '');
@@ -242,6 +280,7 @@ export class DashboardComponent {
     this.isLoadingAi.set(true);
     const salesSummary = `
       Total Sales Today: ${this.posService.totalSalesToday()} MMK.
+      Total Profit: ${this.posService.totalProfitToday()} MMK.
       Total Transactions: ${this.posService.orders().length}.
       Products Sold: ${this.posService.orders().map(o => o.items.map(i => i.product.name).join(', ')).join(', ')}.
     `;
@@ -249,6 +288,17 @@ export class DashboardComponent {
     const advice = await this.geminiService.getBusinessAdvice(salesSummary);
     this.aiResponse.set(advice);
     this.isLoadingAi.set(false);
+  }
+
+  // Shop Config
+  saveShopSettings() {
+      this.posService.updateShopInfo({
+          name: this.shopName,
+          address: this.shopAddress,
+          phone: this.shopPhone,
+          footerMessage: this.shopFooter
+      });
+      alert('ဆိုင်အချက်အလက်များ သိမ်းဆည်းပြီးပါပြီ။');
   }
 
   // Client Action
