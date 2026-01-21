@@ -16,10 +16,10 @@ import { FormsModule } from '@angular/forms';
             </h1>
             <div class="flex items-center gap-2 mt-2">
                 <span class="text-xs px-2 py-1 rounded border font-bold tracking-wider"
-                    [class]="posService.isProVersion() ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-yellow-500/20 border-yellow-500 text-yellow-400'">
-                    {{ posService.isProVersion() ? 'PRO LICENSE' : 'TRIAL VERSION' }}
+                    [class]="posService.isProVersion() ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-red-500/20 border-red-500 text-red-400'">
+                    {{ posService.isProVersion() ? 'LICENSE ACTIVE' : 'LICENSE EXPIRED' }}
                 </span>
-                <span class="text-xs text-gray-500" *ngIf="!posService.isProVersion()">Max 5 items only</span>
+                <span class="text-xs text-gray-500" *ngIf="!posService.isProVersion()">Max 5 items limit applied</span>
             </div>
         </div>
       </div>
@@ -228,8 +228,8 @@ import { FormsModule } from '@angular/forms';
               </h2>
               <div class="space-y-3">
                   <div>
-                      <label class="text-xs text-gray-500">Shop Name (ဆိုင်အမည်)</label>
-                      <input type="text" [(ngModel)]="shopName" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white">
+                      <label class="text-xs text-gray-500">Shop Name (ဆိုင်အမည် - မြန်မာလိုရိုက်ပါ)</label>
+                      <input type="text" [(ngModel)]="shopName" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white font-['Padauk']">
                   </div>
                    <div>
                       <label class="text-xs text-gray-500">Phone</label>
@@ -244,6 +244,35 @@ import { FormsModule } from '@angular/forms';
                       <input type="text" [(ngModel)]="shopFooter" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white">
                   </div>
                   
+                  <!-- QR Code Uploads (NEW) -->
+                  <div class="pt-2 border-t border-gray-700 mt-2">
+                      <h3 class="text-xs font-bold text-gray-400 mb-2">Payment QR Codes (ငွေလက်ခံရန်)</h3>
+                      <div class="flex gap-2">
+                          <div class="flex-1">
+                              <label class="text-[10px] text-gray-300 font-bold block mb-1">KBZ Pay QR</label>
+                              <div class="relative bg-gray-900 border border-gray-600 rounded p-1 h-20 flex items-center justify-center cursor-pointer group hover:border-cyan-500">
+                                   <input type="file" accept="image/*" (change)="onKbzQrSelected($event)" class="absolute inset-0 opacity-0 cursor-pointer z-10">
+                                   @if(kbzQrTemp) {
+                                       <img [src]="kbzQrTemp" class="h-full object-contain">
+                                   } @else {
+                                       <span class="text-[9px] text-gray-500">Upload QR</span>
+                                   }
+                              </div>
+                          </div>
+                          <div class="flex-1">
+                              <label class="text-[10px] text-gray-300 font-bold block mb-1">Wave Pay QR</label>
+                              <div class="relative bg-gray-900 border border-gray-600 rounded p-1 h-20 flex items-center justify-center cursor-pointer group hover:border-cyan-500">
+                                   <input type="file" accept="image/*" (change)="onWaveQrSelected($event)" class="absolute inset-0 opacity-0 cursor-pointer z-10">
+                                   @if(waveQrTemp) {
+                                       <img [src]="waveQrTemp" class="h-full object-contain">
+                                   } @else {
+                                       <span class="text-[9px] text-gray-500">Upload QR</span>
+                                   }
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+
                   <!-- Exchange Rate Config (UPDATED for Clarity) -->
                   <div class="pt-2 border-t border-gray-700 mt-2">
                        <h3 class="text-xs font-bold text-gray-400 mb-2">ငွေလဲလှယ်နှုန်း သတ်မှတ်ချက် (Foreign Currency)</h3>
@@ -323,14 +352,21 @@ import { FormsModule } from '@angular/forms';
                </div>
 
                <div>
-                   <h2 class="text-sm font-bold text-gray-400 mb-2">License Key</h2>
+                   <h2 class="text-sm font-bold text-gray-400 mb-2">License Information</h2>
                    @if (!posService.isProVersion()) {
+                      <div class="bg-red-500/10 border border-red-500/30 p-3 rounded-lg mb-3">
+                          <p class="text-red-400 text-xs font-bold mb-1">Status: EXPIRED / TRIAL</p>
+                          <p class="text-gray-500 text-[10px]">Please contact Admin to renew subscription.</p>
+                      </div>
                       <div class="flex gap-2">
-                          <input type="text" [(ngModel)]="inputLicenseKey" placeholder="Enter Product Key" class="flex-1 bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm">
-                          <button (click)="activateLicense()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold">Activate</button>
+                          <input type="text" [(ngModel)]="inputLicenseKey" placeholder="Activation Key (e.g. FW20251231)" class="flex-1 bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm font-mono">
+                          <button (click)="activateLicense()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold">Renew</button>
                       </div>
                    } @else {
-                      <div class="text-green-400 text-sm font-bold border border-green-500/30 bg-green-500/10 p-2 rounded text-center">License Active</div>
+                      <div class="bg-green-500/10 border border-green-500/30 p-3 rounded-lg">
+                          <p class="text-green-400 text-sm font-bold">License Active</p>
+                          <p class="text-gray-400 text-xs mt-1">Valid Until: <span class="text-white font-mono">{{ posService.licenseExpiryDate() | date:'mediumDate' }}</span></p>
+                      </div>
                    }
                </div>
           </div>
@@ -407,11 +443,13 @@ import { FormsModule } from '@angular/forms';
                  </div>
               </div>
 
-              <!-- Settings -->
+              <!-- Settings (Subscription Management) -->
               <div class="space-y-4">
                   <div>
-                     <label class="text-xs text-gray-500 mb-1 block">Set Valid License Key (For Client)</label>
-                     <input type="text" [(ngModel)]="adminNewLicenseKey" [placeholder]="posService.requiredLicense()" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm font-mono">
+                     <label class="text-xs text-gray-500 mb-1 block">Set Subscription Expiry Date (Valid Until)</label>
+                     <!-- Date Picker for Direct Management -->
+                     <input type="date" [(ngModel)]="adminNewExpiryDate" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm font-mono focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none">
+                     <p class="text-[10px] text-gray-500 mt-1">Current Expiry: {{ posService.licenseExpiryDate() | date:'mediumDate' }}</p>
                  </div>
                  <div>
                      <label class="text-xs text-gray-500 mb-1 block">Change Admin Password (Optional)</label>
@@ -511,7 +549,7 @@ import { FormsModule } from '@angular/forms';
                   <!-- Actions -->
                   <div class="grid grid-cols-2 gap-2 mt-4 print:hidden">
                     <button (click)="printReceipt()" class="bg-gray-900 text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-gray-800">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2-2v4h10z"></path></svg>
                         PRINT
                     </button>
                     <button (click)="receiptOrder.set(null)" class="bg-gray-200 text-gray-800 py-2 rounded text-xs font-bold hover:bg-gray-300">
@@ -561,13 +599,17 @@ export class DashboardComponent {
   shopPhone = '';
   shopFooter = '';
   
+  // QR Images Temp
+  kbzQrTemp = '';
+  waveQrTemp = '';
+  
   // Category Config Models
   editingCategory: string | null = null;
   tempCategoryName = '';
 
   // Admin Panel Models
   authAdminPassword = '';
-  adminNewLicenseKey = '';
+  adminNewExpiryDate = ''; // New: Date Model
   adminNewPassword = '';
 
   constructor() {
@@ -576,6 +618,12 @@ export class DashboardComponent {
       this.shopAddress = info.address;
       this.shopPhone = info.phone;
       this.shopFooter = info.footerMessage;
+      this.kbzQrTemp = info.kbzQr || '';
+      this.waveQrTemp = info.waveQr || '';
+      
+      // Initialize admin date picker with current expiry
+      const expiry = new Date(this.posService.licenseExpiryDate());
+      this.adminNewExpiryDate = expiry.toISOString().split('T')[0];
   }
 
   getMaxSales() {
@@ -643,9 +691,42 @@ export class DashboardComponent {
           name: this.shopName,
           address: this.shopAddress,
           phone: this.shopPhone,
-          footerMessage: this.shopFooter
+          footerMessage: this.shopFooter,
+          kbzQr: this.kbzQrTemp,
+          waveQr: this.waveQrTemp
       });
       alert('ဆိုင်အချက်အလက်များ သိမ်းဆည်းပြီးပါပြီ။');
+  }
+
+  // Image Handlers
+  onKbzQrSelected(event: any) {
+      const file = event.target.files[0];
+      if (file) {
+          if (file.size > 500000) { 
+              alert('File size too large. Please use image under 500KB.');
+              return;
+          }
+          const reader = new FileReader();
+          reader.onload = (e: any) => {
+              this.kbzQrTemp = e.target.result;
+          };
+          reader.readAsDataURL(file);
+      }
+  }
+
+  onWaveQrSelected(event: any) {
+      const file = event.target.files[0];
+      if (file) {
+          if (file.size > 500000) { 
+              alert('File size too large. Please use image under 500KB.');
+              return;
+          }
+          const reader = new FileReader();
+          reader.onload = (e: any) => {
+              this.waveQrTemp = e.target.result;
+          };
+          reader.readAsDataURL(file);
+      }
   }
 
   updateRate(currency: 'THB' | 'CNY', val: number) {
@@ -671,33 +752,40 @@ export class DashboardComponent {
       }
   }
 
-  // Client Action
+  // Client Action: Activate by Key (Format FW20251231)
   activateLicense() {
       if(this.posService.attemptActivation(this.inputLicenseKey)) {
-          alert('License Activated Successfully!');
+          alert('License Renewed Successfully!');
           this.inputLicenseKey = '';
       } else {
-          alert('Invalid License Key');
+          alert('Invalid Key Format! Use FWYYYYMMDD (e.g., FW20251231)');
       }
   }
 
-  // Admin Action
+  // Admin Action: Save Date directly
   saveAdminSettings() {
       if (!this.authAdminPassword) {
           alert('Please enter your current Admin Password to save changes.');
           return;
       }
 
+      // Convert date string to ISO
+      let newDateIso = undefined;
+      if (this.adminNewExpiryDate) {
+          const d = new Date(this.adminNewExpiryDate);
+          d.setHours(23, 59, 59, 999);
+          newDateIso = d.toISOString();
+      }
+
       const success = this.posService.updateSystemSettings(
           this.authAdminPassword, 
-          this.adminNewLicenseKey || undefined, 
+          newDateIso,
           this.adminNewPassword || undefined
       );
 
       if (success) {
           alert('Settings Saved Successfully!');
           this.authAdminPassword = '';
-          this.adminNewLicenseKey = '';
           this.adminNewPassword = '';
       } else {
           alert('Incorrect Admin Password!');

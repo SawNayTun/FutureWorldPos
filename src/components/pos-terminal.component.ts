@@ -469,14 +469,28 @@ import { FormsModule } from '@angular/forms';
                            }
                       </button>
                   </div>
-                  @if (selectedPayment() !== 'Cash' && selectedPayment() !== 'Credit') {
+
+                  <!-- Dynamic QR Display Logic (UPDATED) -->
+                  @if (selectedPayment() === 'KBZ Pay' || selectedPayment() === 'Wave Pay') {
                       <div class="flex flex-col items-center mb-6 animate-fadeIn">
-                          <div class="bg-white p-2 rounded-lg">
-                              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=DemoPayment" class="w-32 h-32" alt="QR Code">
+                          <div class="bg-white p-2 rounded-lg border-4" [class.border-blue-600]="selectedPayment() === 'KBZ Pay'" [class.border-yellow-500]="selectedPayment() === 'Wave Pay'">
+                              @if(selectedPayment() === 'KBZ Pay' && posService.shopInfo().kbzQr) {
+                                  <img [src]="posService.shopInfo().kbzQr" class="w-48 h-48 object-contain" alt="KBZ QR">
+                              } @else if(selectedPayment() === 'Wave Pay' && posService.shopInfo().waveQr) {
+                                  <img [src]="posService.shopInfo().waveQr" class="w-48 h-48 object-contain" alt="Wave QR">
+                              } @else {
+                                  <div class="w-48 h-48 flex flex-col items-center justify-center text-gray-400 bg-gray-100">
+                                      <svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                      <span class="text-xs text-center px-2">No QR Image Found. <br>Please upload in Dashboard > Settings.</span>
+                                  </div>
+                              }
                           </div>
-                          <p class="text-sm text-cyan-400 mt-2">Scan to Pay</p>
+                          <p class="text-sm mt-2 font-bold" [class.text-blue-400]="selectedPayment() === 'KBZ Pay'" [class.text-yellow-400]="selectedPayment() === 'Wave Pay'">
+                              Scan to Pay with {{ selectedPayment() }}
+                          </p>
                       </div>
                   }
+                  
                   @if (selectedPayment() === 'Credit') {
                        <div class="flex flex-col items-center mb-6 animate-fadeIn text-red-400 bg-red-900/20 p-3 rounded-lg border border-red-800">
                           <p class="text-sm">ဤဘေလ်ကို <b>{{ selectedCustomerName() }}</b> ၏ အကြွေးစာရင်းသို့ ထည့်သွင်းပါမည်။</p>

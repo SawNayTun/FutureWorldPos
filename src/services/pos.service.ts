@@ -59,6 +59,8 @@ export interface ShopConfig {
   address: string;
   phone: string;
   footerMessage: string;
+  kbzQr?: string; // New: Custom KBZ QR Image (Base64)
+  waveQr?: string; // New: Custom Wave QR Image (Base64)
 }
 
 @Injectable({
@@ -84,7 +86,9 @@ export class PosService {
       name: 'FUTURE WORLD',
       address: 'Muse, Myanmar',
       phone: '09-123456789',
-      footerMessage: 'Thank You! See you again.'
+      footerMessage: 'Thank You! See you again.',
+      kbzQr: '',
+      waveQr: ''
   });
 
   categories = signal<string[]>(['Drinks', 'Food', 'Stationery', 'Other']);
@@ -101,12 +105,17 @@ export class PosService {
   cartDiscount = signal<number>(0); // Discount in MMK
   selectedCustomerId = signal<number | null>(null); 
   
-  // Licensing
-  enteredLicense = signal<string>(localStorage.getItem('fw_entered_license') || '');
-  requiredLicense = signal<string>(localStorage.getItem('fw_target_license') || 'FUTURE-2025');
+  // Licensing (UPDATED: Date Based)
+  // Default to yesterday (expired) if not set
+  private defaultExpiry = new Date(); 
+  licenseExpiryDate = signal<string>(localStorage.getItem('fw_license_expiry') || new Date(this.defaultExpiry.setDate(this.defaultExpiry.getDate() - 1)).toISOString());
   adminPassword = signal<string>(localStorage.getItem('fw_admin_pass') || 'MasterSaiYan');
 
-  isProVersion = computed(() => this.enteredLicense() === this.requiredLicense());
+  isProVersion = computed(() => {
+      const now = new Date();
+      const expiry = new Date(this.licenseExpiryDate());
+      return now < expiry;
+  });
 
   constructor() {
     this.loadData();
@@ -120,8 +129,7 @@ export class PosService {
     effect(() => localStorage.setItem('fw_shop_info', JSON.stringify(this.shopInfo())));
     effect(() => localStorage.setItem('fw_rates', JSON.stringify(this.exchangeRates())));
     
-    effect(() => localStorage.setItem('fw_entered_license', this.enteredLicense()));
-    effect(() => localStorage.setItem('fw_target_license', this.requiredLicense()));
+    effect(() => localStorage.setItem('fw_license_expiry', this.licenseExpiryDate()));
     effect(() => localStorage.setItem('fw_admin_pass', this.adminPassword()));
   }
 
@@ -549,19 +557,33 @@ export class PosService {
       this.removeFromCart(id);
   }
 
+  // ACTIVATION: Now parses date from Key (Format: FWYYYYMMDD)
   attemptActivation(key: string): boolean {
-      if (key === this.requiredLicense()) {
-          this.enteredLicense.set(key);
-          return true;
+      // Regex for FW followed by 8 digits (FW20251231)
+      const match = key.match(/^FW(\d{4})(\d{2})(\d{2})$/);
+      
+      if (match) {
+          const year = parseInt(match[1]);
+          const month = parseInt(match[2]) - 1; // JS months are 0-indexed
+          const day = parseInt(match[3]);
+          
+          const newExpiry = new Date(year, month, day);
+          newExpiry.setHours(23, 59, 59, 999); // End of day
+
+          // Validate date
+          if (!isNaN(newExpiry.getTime())) {
+              this.licenseExpiryDate.set(newExpiry.toISOString());
+              return true;
+          }
       }
       return false;
   }
 
-  updateSystemSettings(password: string, newLicenseKey?: string, newAdminPassword?: string): boolean {
+  updateSystemSettings(password: string, newExpiryDate?: string, newAdminPassword?: string): boolean {
       if (password !== this.adminPassword()) {
           return false;
       }
-      if (newLicenseKey) this.requiredLicense.set(newLicenseKey);
+      if (newExpiryDate) this.licenseExpiryDate.set(newExpiryDate);
       if (newAdminPassword) this.adminPassword.set(newAdminPassword);
       return true;
   }
@@ -575,7 +597,7 @@ export class PosService {
           categories: this.categories(),
           shopInfo: this.shopInfo(),
           rates: this.exchangeRates(),
-          license: this.enteredLicense(),
+          expiry: this.licenseExpiryDate(),
           version: '1.8'
       };
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
@@ -601,7 +623,7 @@ export class PosService {
                       if(data.categories) this.categories.set(data.categories);
                       if(data.shopInfo) this.shopInfo.set(data.shopInfo);
                       if(data.rates) this.exchangeRates.set(data.rates);
-                      if(data.license) this.enteredLicense.set(data.license);
+                      if(data.expiry) this.licenseExpiryDate.set(data.expiry);
                       resolve(true);
                   } else {
                       resolve(false);
@@ -618,10 +640,10 @@ export class PosService {
       if (password !== this.adminPassword()) return false;
       
       const currentPass = this.adminPassword();
-      const currentTargetLicense = this.requiredLicense();
+      const currentExpiry = this.licenseExpiryDate();
       localStorage.clear();
       localStorage.setItem('fw_admin_pass', currentPass);
-      localStorage.setItem('fw_target_license', currentTargetLicense);
+      localStorage.setItem('fw_license_expiry', currentExpiry);
       location.reload();
       return true;
   }
