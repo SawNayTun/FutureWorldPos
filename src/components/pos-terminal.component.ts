@@ -54,13 +54,22 @@ import { FormsModule } from '@angular/forms';
                 </div>
             </div>
           
-          <!-- Category Tabs -->
-          <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-            <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'All' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('All')">အားလုံး</button>
-            <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'Drinks' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('Drinks')">အချိုရည်</button>
-            <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'Food' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('Food')">အစားအစာ</button>
-            <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'Stationery' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('Stationery')">စာရေးကိရိယာ</button>
-            <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'Other' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('Other')">အခြား</button>
+          <div class="flex flex-col md:flex-row justify-between gap-3 items-center">
+              <!-- Category Tabs -->
+              <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar w-full md:w-auto">
+                <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'All' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('All')">အားလုံး</button>
+                <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'Drinks' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('Drinks')">အချိုရည်</button>
+                <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'Food' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('Food')">အစားအစာ</button>
+                <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'Stationery' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('Stationery')">စာရေးကိရိယာ</button>
+                <button class="px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors" [class]="selectedCategory() === 'Other' ? 'bg-cyan-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'" (click)="selectedCategory.set('Other')">အခြား</button>
+              </div>
+
+              <!-- Currency Switcher -->
+              <div class="flex gap-1 bg-gray-700 rounded-lg p-1 shrink-0">
+                  <button (click)="setCurrency('MMK')" [class]="posService.activeCurrency() === 'MMK' ? 'bg-cyan-500 text-black shadow-md' : 'text-gray-400 hover:text-white'" class="px-3 py-1.5 rounded-md text-xs font-bold transition-all">MMK</button>
+                  <button (click)="setCurrency('THB')" [class]="posService.activeCurrency() === 'THB' ? 'bg-cyan-500 text-black shadow-md' : 'text-gray-400 hover:text-white'" class="px-3 py-1.5 rounded-md text-xs font-bold transition-all">THB</button>
+                  <button (click)="setCurrency('CNY')" [class]="posService.activeCurrency() === 'CNY' ? 'bg-cyan-500 text-black shadow-md' : 'text-gray-400 hover:text-white'" class="px-3 py-1.5 rounded-md text-xs font-bold transition-all">CNY</button>
+              </div>
           </div>
         </div>
 

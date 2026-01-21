@@ -28,8 +28,8 @@
     "types": ["node"]
   },
   "include": [
-    "src/**/*",
-    "index.tsx"
+    "src/main.ts",
+    "src/**/*"
   ],
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
