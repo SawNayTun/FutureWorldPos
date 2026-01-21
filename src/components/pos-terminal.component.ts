@@ -107,8 +107,9 @@ import { FormsModule } from '@angular/forms';
               
               <div (click)="product.stock > 0 ? posService.addToCart(product) : null" class="h-28 w-full rounded-lg overflow-hidden relative bg-gray-800 mb-1 cursor-pointer">
                 <img [src]="product.image" loading="lazy" alt="{{product.name}}" class="object-cover w-full h-full group-hover:scale-110 transition-transform duration-300 opacity-90 group-hover:opacity-100">
-                <div class="absolute top-1 right-1 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] font-bold text-white z-10 border border-gray-600 shadow-sm">
-                  {{ posService.convertPrice(product.price) | number }}
+                <div class="absolute top-1 right-1 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] font-bold text-white z-10 border border-gray-600 shadow-sm flex items-center gap-1">
+                   <!-- Show Original Base Price -->
+                  {{ product.price | number }} <span class="text-cyan-300 text-[8px] uppercase">{{ product.currency }}</span>
                 </div>
                  <div class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold z-10 shadow-sm" [class]="product.stock === 0 ? 'bg-red-500/90 text-white' : (product.stock < 5 ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-800/90 text-gray-300 border border-gray-600')">
                    {{ product.stock === 0 ? 'ပစ္စည်းကုန်' : (product.stock < 5 ? 'Low: ' + product.stock : 'Stock: ' + product.stock) }}
@@ -185,7 +186,10 @@ import { FormsModule } from '@angular/forms';
                   </button>
                 </div>
                 <div class="flex justify-between items-end">
-                  <div class="text-cyan-400 font-bold text-sm">{{ posService.convertPrice(item.product.price) * item.quantity | number }} {{ posService.getCurrencySymbol() }}</div>
+                   <!-- Show Original Currency Price here -->
+                  <div class="text-cyan-400 font-bold text-sm">
+                      {{ item.product.price * item.quantity | number }} <span class="text-[10px]">{{ item.product.currency }}</span>
+                  </div>
                   <div class="flex items-center gap-3 bg-gray-800 rounded-lg px-2 py-1">
                     <button (click)="posService.updateQuantity(item.product.id, -1)" class="w-5 h-5 flex items-center justify-center bg-gray-700 rounded hover:bg-gray-600 text-white">-</button>
                     <span class="text-sm font-medium w-4 text-center">{{ item.quantity }}</span>
@@ -528,32 +532,48 @@ import { FormsModule } from '@angular/forms';
                           <label class="block text-sm text-gray-400 mb-1">ပစ္စည်းအမည်</label>
                           <input type="text" [(ngModel)]="modalProductName" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
                       </div>
-                      <div class="flex gap-4">
-                        <div class="flex-1">
+                      <div class="grid grid-cols-2 gap-4">
+                         <div>
                             <label class="block text-sm text-gray-400 mb-1">အရောင်းဈေး (Selling)</label>
                             <input type="number" [(ngModel)]="modalProductPrice" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
                         </div>
-                        <div class="flex-1">
+                        <div>
                             <label class="block text-sm text-gray-400 mb-1">အရင်းဈေး (Cost)</label>
                             <input type="number" [(ngModel)]="modalProductCost" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
                         </div>
                       </div>
+                      
+                      <!-- Currency Selection -->
                       <div>
-                          <label class="block text-sm text-gray-400 mb-1">လက်ကျန် (Stock)</label>
-                          <input type="number" [(ngModel)]="modalProductStock" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
+                          <label class="block text-sm text-gray-400 mb-1">ငွေကြေးအမျိုးအစား (Currency)</label>
+                          <select [(ngModel)]="modalProductCurrency" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
+                              <option value="MMK">MMK (ကျပ်)</option>
+                              <option value="THB">THB (ဘတ်)</option>
+                              <option value="CNY">CNY (ယွမ်)</option>
+                          </select>
+                          <p class="text-[10px] text-gray-500 mt-1">
+                              * ဈေးနှုန်းသတ်မှတ်မည့် ငွေကြေးကို ရွေးပါ။ (ဥပမာ- ထိုင်းပစ္စည်းဆို THB ရွေးပြီး 10 ဘတ် ဟု ထည့်ပါ)
+                          </p>
                       </div>
-                      <div>
-                          <label class="block text-sm text-gray-400 mb-1">အမျိုးအစား (ရွေးပါ သို့မဟုတ် အသစ်ရိုက်ထည့်ပါ)</label>
-                          <input 
-                            list="categoryList" 
-                            [(ngModel)]="modalProductCategory" 
-                            placeholder="Select or type new..."
-                            class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
-                          <datalist id="categoryList">
-                              @for (cat of posService.categories(); track cat) {
-                                  <option [value]="cat"></option>
-                              }
-                          </datalist>
+
+                      <div class="grid grid-cols-2 gap-4">
+                          <div>
+                              <label class="block text-sm text-gray-400 mb-1">လက်ကျန် (Stock)</label>
+                              <input type="number" [(ngModel)]="modalProductStock" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
+                          </div>
+                          <div>
+                              <label class="block text-sm text-gray-400 mb-1">အမျိုးအစား</label>
+                              <input 
+                                list="categoryList" 
+                                [(ngModel)]="modalProductCategory" 
+                                placeholder="Select or type..."
+                                class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
+                              <datalist id="categoryList">
+                                  @for (cat of posService.categories(); track cat) {
+                                      <option [value]="cat"></option>
+                                  }
+                              </datalist>
+                          </div>
                       </div>
                   </div>
 
@@ -600,7 +620,10 @@ import { FormsModule } from '@angular/forms';
                           <div class="flex mb-1">
                               <span class="w-1/2 truncate pr-1">{{ item.product.name }}</span>
                               <span class="w-1/4 text-center">{{item.quantity}}</span>
-                              <span class="w-1/4 text-right">{{ posService.convertPrice(item.product.price) * item.quantity | number }}</span>
+                              <!-- Show Normalized Price for Receipt, or maybe base currency? Normalized is better for totals -->
+                              <span class="w-1/4 text-right">
+                                  {{ posService.convertPrice(posService.calculateMMKValue(item.product.price, item.product.currency)) * item.quantity | number }}
+                              </span>
                           </div>
                       }
                   </div>
@@ -677,7 +700,7 @@ export class PosTerminalComponent {
   posService = inject(PosService);
   searchTerm = signal('');
   selectedCategory = signal('All');
-  filterLowStock = signal(false); // New Filter State
+  filterLowStock = signal(false); 
   todayDate = new Date();
 
   // Modal States
@@ -705,7 +728,8 @@ export class PosTerminalComponent {
   modalProductCost = 0;
   modalProductStock = 0;
   modalProductCategory = 'Other';
-  modalProductImage = ''; // For Preview
+  modalProductImage = ''; 
+  modalProductCurrency: 'MMK' | 'THB' | 'CNY' = 'MMK'; // Added Currency Model
 
   @ViewChild('barcodeInput') barcodeInput!: ElementRef;
 
@@ -723,7 +747,7 @@ export class PosTerminalComponent {
     return this.posService.products().filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(term) || p.barcode.includes(term);
       const matchesCategory = category === 'All' || p.category === category;
-      const matchesLowStock = !showLowStock || p.stock < 5; // Low stock threshold 5
+      const matchesLowStock = !showLowStock || p.stock < 5; 
 
       return matchesSearch && matchesCategory && matchesLowStock;
     });
@@ -737,12 +761,10 @@ export class PosTerminalComponent {
       
       const success = this.posService.addToCartByBarcode(barcode);
       
-      // Force clear the input using nativeElement for speed (critical for scanners)
       if (this.barcodeInput) {
           this.barcodeInput.nativeElement.value = '';
           this.barcodeInput.nativeElement.focus();
       }
-      // Also update the signal
       this.searchTerm.set('');
 
       if (success) {
@@ -760,13 +782,11 @@ export class PosTerminalComponent {
           this.lastOrder.set(order);
           this.showPaymentModal.set(false);
           this.selectedPayment.set('Cash');
-          // Clear discount after sale
           this.posService.setDiscount(0);
-          this.posService.selectedCustomerId.set(null); // Reset customer
+          this.posService.selectedCustomerId.set(null); 
       }
   }
 
-  // --- New Features ---
   toggleDiscount() {
       this.tempDiscount = this.posService.cartDiscount();
       this.showDiscountModal.set(true);
@@ -806,9 +826,7 @@ export class PosTerminalComponent {
       this.showParkedModal.set(false);
   }
   
-  // Rate Edit Logic
   openRateModal() {
-      // Just open modal, user can see/edit all
       this.showRateModal.set(true);
   }
 
@@ -822,22 +840,17 @@ export class PosTerminalComponent {
       this.showRateModal.set(false);
   }
   
-  // Helper to calculate cross rates dynamically based on MMK base
   calculateCrossRate(from: 'THB' | 'CNY', to: 'THB' | 'CNY'): number {
       const rates = this.posService.exchangeRates();
-      // e.g. 1 CNY (450 MMK) -> ? THB (100 MMK)
-      // 450 / 100 = 4.5
       return rates[from] / rates[to];
   }
 
-  // New helper in component
   calculateMMKToForeign(amount: number, currency: 'THB' | 'CNY'): number {
       const rate = this.posService.exchangeRates()[currency];
       if(!rate) return 0;
       return amount / rate;
   }
   
-  // Helper for footer display
   getConvertedTotal(targetCurrency: 'THB' | 'CNY'): number {
       const mmkTotal = this.posService.cartTotalMMK();
       const rate = this.posService.exchangeRates()[targetCurrency];
@@ -870,7 +883,7 @@ export class PosTerminalComponent {
   onFileSelected(event: any) {
       const file = event.target.files[0];
       if (file) {
-          if (file.size > 500000) { // Limit 500KB to save localStorage
+          if (file.size > 500000) { 
               alert('ဓာတ်ပုံဖိုင်ဆိုဒ် ကြီးလွန်းပါသည်။ 500KB အောက်ပုံကို ရွေးပါ။');
               return;
           }
@@ -884,8 +897,6 @@ export class PosTerminalComponent {
 
   openProductModal(productData?: Product) {
       if (productData) {
-          // IMPORTANT: Fetch the latest data from the service to ensure we have current Stock
-          // The productData passed from the template loop might be stale if checkout happened recently
           const freshProduct = this.posService.products().find(p => p.id === productData.id) || productData;
 
           this.isEditing.set(true);
@@ -894,11 +905,11 @@ export class PosTerminalComponent {
           this.modalProductName = freshProduct.name;
           this.modalProductPrice = freshProduct.price;
           this.modalProductCost = freshProduct.cost || 0;
+          this.modalProductCurrency = freshProduct.currency; // Load Currency
           this.modalProductStock = freshProduct.stock;
           this.modalProductCategory = freshProduct.category;
           this.modalProductImage = freshProduct.image;
       } else {
-          // Check limit if adding new
           if (!this.posService.isProVersion() && this.posService.products().length >= 5) {
              alert("Free Version တွင် ပစ္စည်း ၅ မျိုးသာ ထည့်သွင်းခွင့်ရှိသည်။");
              return;
@@ -909,6 +920,7 @@ export class PosTerminalComponent {
           this.modalProductName = '';
           this.modalProductPrice = 0;
           this.modalProductCost = 0;
+          this.modalProductCurrency = 'MMK'; // Default
           this.modalProductStock = 0;
           this.modalProductCategory = 'Other';
           this.modalProductImage = '';
@@ -932,6 +944,7 @@ export class PosTerminalComponent {
               name: this.modalProductName,
               price: this.modalProductPrice,
               cost: this.modalProductCost,
+              currency: this.modalProductCurrency,
               stock: this.modalProductStock,
               category: this.modalProductCategory,
               barcode: this.modalProductBarcode,
@@ -943,6 +956,7 @@ export class PosTerminalComponent {
               this.modalProductName, 
               this.modalProductPrice,
               this.modalProductCost,
+              this.modalProductCurrency, // Pass currency
               this.modalProductCategory,
               this.modalProductBarcode,
               this.modalProductStock,

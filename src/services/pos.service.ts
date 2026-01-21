@@ -6,6 +6,7 @@ export interface Product {
   name: string;
   price: number; 
   cost: number;  
+  currency: 'MMK' | 'THB' | 'CNY'; // Base currency for this specific product
   category: string;
   image: string;
   stock: number;
@@ -15,7 +16,7 @@ export interface Customer {
   id: number;
   name: string;
   phone: string;
-  totalDebt: number; // Total Credit Amount
+  totalDebt: number; // Total Credit Amount in MMK
   lastPurchase: string;
 }
 
@@ -28,14 +29,14 @@ export interface Order {
   id: string;
   date: string;
   items: CartItem[];
-  subtotal: number;
-  discount: number;
-  total: number;
-  totalCost: number; 
-  totalProfit: number; 
-  paymentMethod: 'Cash' | 'KBZ Pay' | 'Wave Pay' | 'Credit'; // Added Credit
-  customerId?: number; // Linked Customer
-  currency: 'MMK' | 'THB' | 'CNY';
+  subtotal: number; // In MMK
+  discount: number; // In MMK
+  total: number; // In MMK
+  totalCost: number; // In MMK
+  totalProfit: number; // In MMK
+  paymentMethod: 'Cash' | 'KBZ Pay' | 'Wave Pay' | 'Credit';
+  customerId?: number; 
+  currency: 'MMK' | 'THB' | 'CNY'; // Transaction currency view
 }
 
 export interface ParkedOrder {
@@ -64,32 +65,32 @@ export interface ShopConfig {
   providedIn: 'root'
 })
 export class PosService {
-  // Exchange Rates as Signal for editing
+  // Exchange Rates as Signal for editing (1 Unit = ? MMK)
   exchangeRates = signal({
     MMK: 1,
     THB: 100,
     CNY: 450
   });
 
-  // Mock initial data
+  // Mock initial data with mixed currencies
   private initialProducts: Product[] = [
-    { id: 1, barcode: '8850123', name: 'Royal D', price: 500, cost: 350, category: 'Drinks', image: 'https://picsum.photos/200/200?random=1', stock: 50 },
-    { id: 2, barcode: '8850124', name: 'Myanmar Beer', price: 2500, cost: 2100, category: 'Drinks', image: 'https://picsum.photos/200/200?random=2', stock: 24 },
+    { id: 1, barcode: '8850123', name: 'Royal D', price: 10, cost: 7, currency: 'THB', category: 'Drinks', image: 'https://picsum.photos/200/200?random=1', stock: 50 },
+    { id: 2, barcode: '8850124', name: 'Myanmar Beer', price: 2500, cost: 2100, currency: 'MMK', category: 'Drinks', image: 'https://picsum.photos/200/200?random=2', stock: 24 },
+    { id: 3, barcode: '8850125', name: 'Chinese Tea', price: 5, cost: 3, currency: 'CNY', category: 'Drinks', image: 'https://picsum.photos/200/200?random=3', stock: 30 },
   ];
 
   // Shop Configuration
   shopInfo = signal<ShopConfig>({
       name: 'FUTURE WORLD',
-      address: 'Yangon, Myanmar',
+      address: 'Muse, Myanmar',
       phone: '09-123456789',
       footerMessage: 'Thank You! See you again.'
   });
 
-  // Dynamic Categories
   categories = signal<string[]>(['Drinks', 'Food', 'Stationery', 'Other']);
 
   products = signal<Product[]>([]);
-  customers = signal<Customer[]>([]); // Customer List
+  customers = signal<Customer[]>([]); 
   cart = signal<CartItem[]>([]);
   orders = signal<Order[]>([]);
   parkedOrders = signal<ParkedOrder[]>([]);
@@ -97,8 +98,8 @@ export class PosService {
 
   activeCurrency = signal<'MMK' | 'THB' | 'CNY'>('MMK');
   
-  cartDiscount = signal<number>(0); 
-  selectedCustomerId = signal<number | null>(null); // Current customer in cart
+  cartDiscount = signal<number>(0); // Discount in MMK
+  selectedCustomerId = signal<number | null>(null); 
   
   // Licensing
   enteredLicense = signal<string>(localStorage.getItem('fw_entered_license') || '');
@@ -110,7 +111,6 @@ export class PosService {
   constructor() {
     this.loadData();
 
-    // Auto-save effects
     effect(() => localStorage.setItem('fw_products', JSON.stringify(this.products())));
     effect(() => localStorage.setItem('fw_orders', JSON.stringify(this.orders())));
     effect(() => localStorage.setItem('fw_parked', JSON.stringify(this.parkedOrders())));
@@ -118,9 +118,8 @@ export class PosService {
     effect(() => localStorage.setItem('fw_expenses', JSON.stringify(this.expenses())));
     effect(() => localStorage.setItem('fw_customers', JSON.stringify(this.customers())));
     effect(() => localStorage.setItem('fw_shop_info', JSON.stringify(this.shopInfo())));
-    effect(() => localStorage.setItem('fw_rates', JSON.stringify(this.exchangeRates()))); // Save Rates
+    effect(() => localStorage.setItem('fw_rates', JSON.stringify(this.exchangeRates())));
     
-    // Security persistence
     effect(() => localStorage.setItem('fw_entered_license', this.enteredLicense()));
     effect(() => localStorage.setItem('fw_target_license', this.requiredLicense()));
     effect(() => localStorage.setItem('fw_admin_pass', this.adminPassword()));
@@ -148,18 +147,32 @@ export class PosService {
     if (rates) this.exchangeRates.set(JSON.parse(rates));
   }
 
-  // --- Calculations ---
+  // --- Core Calculation Logic ---
+  // Calculates the MMK value of any amount based on its source currency and current rates
+  calculateMMKValue(amount: number, currency: 'MMK' | 'THB' | 'CNY'): number {
+      const rate = this.exchangeRates()[currency];
+      return amount * rate;
+  }
+
   cartSubTotalMMK = computed(() => {
-    return this.cart().reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
+    return this.cart().reduce((acc, item) => {
+        // Normalize item price to MMK first
+        const itemPriceMMK = this.calculateMMKValue(item.product.price, item.product.currency);
+        return acc + (itemPriceMMK * item.quantity);
+    }, 0);
   });
 
   cartTotalCostMMK = computed(() => {
-      return this.cart().reduce((acc, item) => acc + (item.product.cost * item.quantity), 0);
+      return this.cart().reduce((acc, item) => {
+          // Normalize item cost to MMK first
+          const itemCostMMK = this.calculateMMKValue(item.product.cost, item.product.currency);
+          return acc + (itemCostMMK * item.quantity);
+      }, 0);
   });
 
   cartTotalMMK = computed(() => {
       const sub = this.cartSubTotalMMK();
-      const disc = this.cartDiscount();
+      const disc = this.cartDiscount(); // Discount is already stored as MMK
       return Math.max(0, sub - disc);
   });
 
@@ -167,11 +180,11 @@ export class PosService {
     return this.cart().reduce((acc, item) => acc + item.quantity, 0);
   });
 
-  // Today's Stats
+  // --- Reporting & Stats ---
   totalSalesToday = computed(() => {
       const today = new Date().toDateString();
       return this.orders()
-        .filter(o => new Date(o.date).toDateString() === today && o.paymentMethod !== 'Credit') // Don't count credit as cash-in-hand
+        .filter(o => new Date(o.date).toDateString() === today && o.paymentMethod !== 'Credit')
         .reduce((acc, order) => acc + order.total, 0);
   });
   
@@ -208,7 +221,6 @@ export class PosService {
       };
   });
 
-  // Last 7 Days Sales for Chart
   last7DaysSales = computed(() => {
       const result = [];
       for (let i = 6; i >= 0; i--) {
@@ -240,15 +252,15 @@ export class PosService {
       return Array.from(itemMap.entries())
           .map(([name, qty]) => ({ name, qty }))
           .sort((a, b) => b.qty - a.qty)
-          .slice(0, 5); // Top 5
+          .slice(0, 5);
   });
 
-  // Low Stock Items (< 5)
   lowStockItems = computed(() => {
       return this.products().filter(p => p.stock < 5);
   });
 
-  // --- Currency Helpers ---
+  // --- Display Conversion ---
+  // Converts an MMK amount to the currently active display currency
   convertPrice(priceMMK: number): number {
       const rate = this.exchangeRates()[this.activeCurrency()];
       return Math.ceil(priceMMK / rate); 
@@ -258,11 +270,13 @@ export class PosService {
       this.exchangeRates.update(r => ({...r, [currency]: rate}));
   }
 
-  getCurrencySymbol(): string {
-      switch(this.activeCurrency()) {
+  getCurrencySymbol(currency?: string): string {
+      const target = currency || this.activeCurrency();
+      switch(target) {
           case 'MMK': return 'Ks';
           case 'THB': return '฿';
           case 'CNY': return '¥';
+          default: return '';
       }
   }
 
@@ -320,7 +334,6 @@ export class PosService {
     this.selectedCustomerId.set(null);
   }
 
-  // --- Hold / Retrieve Bill ---
   parkOrder(note: string = 'Held Bill') {
       const currentCart = this.cart();
       if (currentCart.length === 0) return;
@@ -348,7 +361,6 @@ export class PosService {
       this.parkedOrders.update(p => p.filter(i => i.id !== id));
   }
 
-  // --- Checkout ---
   checkout(paymentMethod: 'Cash' | 'KBZ Pay' | 'Wave Pay' | 'Credit'): Order | null {
     const currentCart = this.cart();
     if (currentCart.length === 0) return null;
@@ -357,19 +369,16 @@ export class PosService {
     const totalCost = this.cartTotalCostMMK();
     const totalProfit = totalSale - totalCost;
 
-    // Handle Credit Logic
     if (paymentMethod === 'Credit') {
         const custId = this.selectedCustomerId();
-        if (!custId) return null; // Cannot do credit without customer
+        if (!custId) return null; 
         
-        // Update Customer Debt
         this.customers.update(custs => custs.map(c => 
             c.id === custId 
             ? { ...c, totalDebt: c.totalDebt + totalSale, lastPurchase: new Date().toISOString() }
             : c
         ));
     } else if (this.selectedCustomerId()) {
-        // Cash purchase but customer linked (update last purchase date)
         this.customers.update(custs => custs.map(c => 
             c.id === this.selectedCustomerId()
             ? { ...c, lastPurchase: new Date().toISOString() }
@@ -377,7 +386,6 @@ export class PosService {
         ));
     }
 
-    // Deduct Stock
     this.products.update(allProducts => {
         return allProducts.map(p => {
             const cartItem = currentCart.find(c => c.product.id === p.id);
@@ -408,12 +416,10 @@ export class PosService {
     return newOrder;
   }
   
-  // --- Order Management ---
   voidOrder(orderId: string) {
       const order = this.orders().find(o => o.id === orderId);
       if(!order) return;
 
-      // Restore stock
       this.products.update(allProducts => {
           return allProducts.map(p => {
               const item = order.items.find(i => i.product.id === p.id);
@@ -424,7 +430,6 @@ export class PosService {
           });
       });
 
-      // Reverse Credit if applicable
       if (order.paymentMethod === 'Credit' && order.customerId) {
           this.customers.update(custs => custs.map(c => 
              c.id === order.customerId
@@ -433,11 +438,9 @@ export class PosService {
           ));
       }
 
-      // Remove order
       this.orders.update(orders => orders.filter(o => o.id !== orderId));
   }
 
-  // --- Customer Management ---
   addCustomer(name: string, phone: string) {
       const newCust: Customer = {
           id: Date.now(),
@@ -462,7 +465,6 @@ export class PosService {
       }));
   }
 
-  // --- Expense Management ---
   addExpense(description: string, amount: number, category: Expense['category']) {
       const newExpense: Expense = {
           id: Date.now(),
@@ -478,7 +480,6 @@ export class PosService {
       this.expenses.update(e => e.filter(item => item.id !== id));
   }
 
-  // --- Product & Category & Shop Management ---
   updateShopInfo(info: ShopConfig) {
       this.shopInfo.set(info);
   }
@@ -490,41 +491,28 @@ export class PosService {
       }
   }
   
-  // NEW: Update and Delete Category Logic
   updateCategory(oldName: string, newName: string) {
       const trimmed = newName.trim();
       if (!trimmed || oldName === trimmed) return;
-
-      // 1. Update Products using this category
       this.products.update(ps => ps.map(p => p.category === oldName ? { ...p, category: trimmed } : p));
-
-      // 2. Update Category List
       this.categories.update(cats => {
-          // If new name exists, remove old and assume merge
           if (cats.includes(trimmed)) {
               return cats.filter(c => c !== oldName);
           }
-          // Else rename
           return cats.map(c => c === oldName ? trimmed : c);
       });
   }
 
   deleteCategory(categoryName: string) {
-      if (categoryName === 'Other') return; // Protect default
-
-      // 1. Move products to 'Other'
+      if (categoryName === 'Other') return;
       this.products.update(ps => ps.map(p => p.category === categoryName ? { ...p, category: 'Other' } : p));
-
-      // 2. Remove from list
       this.categories.update(cats => cats.filter(c => c !== categoryName));
-      
-      // Ensure 'Other' exists
       if (!this.categories().includes('Other')) {
           this.categories.update(c => [...c, 'Other']);
       }
   }
 
-  addNewProduct(name: string, price: number, cost: number, category: string, barcode: string, stock: number, imageBase64: string) {
+  addNewProduct(name: string, price: number, cost: number, currency: 'MMK' | 'THB' | 'CNY', category: string, barcode: string, stock: number, imageBase64: string) {
     if (!this.isProVersion() && this.products().length >= 5) {
         alert("Free Version တွင် ပစ္စည်း ၅ မျိုးသာ ထည့်သွင်းခွင့်ရှိသည်။ အကန့်အသတ်မရှိသုံးရန် လိုင်စင်ဝယ်ယူပါ။");
         return;
@@ -538,6 +526,7 @@ export class PosService {
         name,
         price,
         cost,
+        currency, // Set the base currency
         category,
         stock,
         image: imageBase64 || `https://picsum.photos/200/200?random=${Date.now()}`
@@ -560,7 +549,6 @@ export class PosService {
       this.removeFromCart(id);
   }
 
-  // --- Admin & Security Management ---
   attemptActivation(key: string): boolean {
       if (key === this.requiredLicense()) {
           this.enteredLicense.set(key);
@@ -578,7 +566,6 @@ export class PosService {
       return true;
   }
 
-  // --- Data Management ---
   exportData() {
       const data = {
           products: this.products(),
@@ -589,7 +576,7 @@ export class PosService {
           shopInfo: this.shopInfo(),
           rates: this.exchangeRates(),
           license: this.enteredLicense(),
-          version: '1.7'
+          version: '1.8'
       };
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
       const url = window.URL.createObjectURL(blob);
