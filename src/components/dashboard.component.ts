@@ -1,6 +1,7 @@
 import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { PosService, Order } from '../services/pos.service';
+import { GeminiService } from '../services/gemini.service';
 import { FormsModule } from '@angular/forms';
 
 @Component({
@@ -26,6 +27,32 @@ import { FormsModule } from '@angular/forms';
 
       <!-- Stats Cards -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <!-- AI Insight Card (New) -->
+        <div class="md:col-span-4 bg-gradient-to-r from-indigo-900 to-purple-900 p-6 rounded-2xl border border-indigo-500/50 shadow-lg relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-10">
+                <svg class="w-32 h-32 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6a1 1 0 0 0-1 1v4.59l-3.29 3.3a1 1 0 0 0 1.41 1.41l4-4a1 1 0 0 0 .29-.71V7a1 1 0 0 0-1-1z"/></svg>
+            </div>
+            <div class="relative z-10">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2 mb-2">
+                    <span class="text-2xl">✨</span> AI Business Consultant
+                </h2>
+                @if (isLoadingAdvice()) {
+                    <div class="flex items-center gap-2 text-indigo-200 animate-pulse">
+                        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        Analyzing sales data...
+                    </div>
+                } @else {
+                    <p class="text-indigo-100 text-sm whitespace-pre-line leading-relaxed mb-4">
+                        {{ aiAdvice() || 'Get personalized business advice based on your sales data.' }}
+                    </p>
+                    <button (click)="getAdvice()" class="bg-white text-indigo-900 px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-50 transition-colors shadow-md flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        {{ aiAdvice() ? 'Refresh Advice' : 'Ask AI Now' }}
+                    </button>
+                }
+            </div>
+        </div>
+
         <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg relative overflow-hidden group">
           <div class="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/20 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
           <h3 class="text-gray-400 font-medium mb-1">ဒီနေ့ရောင်းအား (Sales)</h3>
@@ -215,6 +242,33 @@ import { FormsModule } from '@angular/forms';
                        <p class="text-gray-500 text-xs text-center">မှတ်တမ်းမရှိပါ</p>
                    }
                </div>
+           </div>
+      </div>
+
+      <!-- Stock Movement Logs -->
+      <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg flex flex-col mb-8 max-h-[400px]">
+           <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+               <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+               Stock Movement Logs (ကုန်ပစ္စည်းမှတ်တမ်း)
+           </h2>
+           <div class="flex-1 overflow-y-auto custom-scroll space-y-2">
+               @for (log of posService.stockLogs(); track log.id) {
+                   <div class="bg-gray-900/50 p-3 rounded border border-gray-700 text-sm">
+                       <div class="flex justify-between mb-1">
+                           <span class="font-bold text-gray-300">{{ log.productName }}</span>
+                           <span class="font-mono font-bold" [class.text-green-400]="log.changeAmount > 0" [class.text-red-400]="log.changeAmount < 0">
+                               {{ log.changeAmount > 0 ? '+' : '' }}{{ log.changeAmount }}
+                           </span>
+                       </div>
+                       <div class="flex justify-between text-xs text-gray-500">
+                           <span>{{ log.reason }} • {{ log.note }}</span>
+                           <span>{{ log.timestamp | date:'short' }}</span>
+                       </div>
+                   </div>
+               }
+               @if (posService.stockLogs().length === 0) {
+                   <p class="text-gray-500 text-center py-4">No logs yet.</p>
+               }
            </div>
       </div>
 
@@ -569,7 +623,12 @@ import { FormsModule } from '@angular/forms';
 })
 export class DashboardComponent {
   posService = inject(PosService);
+  geminiService = inject(GeminiService);
   
+  // AI
+  aiAdvice = signal('');
+  isLoadingAdvice = signal(false);
+
   // UI Tabs
   activeTab: 'low' | 'top' = 'low';
 
@@ -624,6 +683,16 @@ export class DashboardComponent {
       // Initialize admin date picker with current expiry
       const expiry = new Date(this.posService.licenseExpiryDate());
       this.adminNewExpiryDate = expiry.toISOString().split('T')[0];
+  }
+
+  async getAdvice() {
+      if (this.isLoadingAdvice()) return;
+      
+      this.isLoadingAdvice.set(true);
+      const summary = this.posService.getSalesSummaryForAI();
+      const advice = await this.geminiService.getBusinessAdvice(summary);
+      this.aiAdvice.set(advice);
+      this.isLoadingAdvice.set(false);
   }
 
   getMaxSales() {

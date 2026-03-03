@@ -63,6 +63,16 @@ export interface ShopConfig {
   waveQr?: string; // New: Custom Wave QR Image (Base64)
 }
 
+export interface StockLog {
+  id: number;
+  productId: number;
+  productName: string;
+  changeAmount: number; // + for add, - for remove
+  reason: 'Sale' | 'Restock' | 'Void' | 'Adjustment' | 'Initial';
+  timestamp: string;
+  note?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -99,6 +109,7 @@ export class PosService {
   orders = signal<Order[]>([]);
   parkedOrders = signal<ParkedOrder[]>([]);
   expenses = signal<Expense[]>([]); 
+  stockLogs = signal<StockLog[]>([]);
 
   activeCurrency = signal<'MMK' | 'THB' | 'CNY'>('MMK');
   
@@ -126,6 +137,7 @@ export class PosService {
     effect(() => localStorage.setItem('fw_categories', JSON.stringify(this.categories())));
     effect(() => localStorage.setItem('fw_expenses', JSON.stringify(this.expenses())));
     effect(() => localStorage.setItem('fw_customers', JSON.stringify(this.customers())));
+    effect(() => localStorage.setItem('fw_stock_logs', JSON.stringify(this.stockLogs())));
     effect(() => localStorage.setItem('fw_shop_info', JSON.stringify(this.shopInfo())));
     effect(() => localStorage.setItem('fw_rates', JSON.stringify(this.exchangeRates())));
     
@@ -140,6 +152,7 @@ export class PosService {
     const cats = localStorage.getItem('fw_categories');
     const exp = localStorage.getItem('fw_expenses');
     const cust = localStorage.getItem('fw_customers');
+    const logs = localStorage.getItem('fw_stock_logs');
     const shop = localStorage.getItem('fw_shop_info');
     const rates = localStorage.getItem('fw_rates');
     
@@ -151,6 +164,7 @@ export class PosService {
     if (cats) this.categories.set(JSON.parse(cats));
     if (exp) this.expenses.set(JSON.parse(exp));
     if (cust) this.customers.set(JSON.parse(cust));
+    if (logs) this.stockLogs.set(JSON.parse(logs));
     if (shop) this.shopInfo.set(JSON.parse(shop));
     if (rates) this.exchangeRates.set(JSON.parse(rates));
   }
@@ -399,6 +413,7 @@ export class PosService {
             const cartItem = currentCart.find(c => c.product.id === p.id);
             if (cartItem) {
                 const newStock = Math.max(0, p.stock - cartItem.quantity);
+                this.addStockLog(p.id, p.name, -cartItem.quantity, 'Sale', `Order ${newOrder.id}`);
                 return { ...p, stock: newStock };
             }
             return p;
@@ -432,6 +447,7 @@ export class PosService {
           return allProducts.map(p => {
               const item = order.items.find(i => i.product.id === p.id);
               if(item) {
+                  this.addStockLog(p.id, p.name, item.quantity, 'Void', `Void Order ${orderId}`);
                   return { ...p, stock: p.stock + item.quantity };
               }
               return p;
@@ -540,9 +556,16 @@ export class PosService {
         image: imageBase64 || `https://picsum.photos/200/200?random=${Date.now()}`
     };
     this.products.update(p => [...p, newProduct]);
+    this.addStockLog(newProduct.id, newProduct.name, stock, 'Initial', 'New Product Entry');
   }
 
   updateProduct(updatedProduct: Product) {
+      const oldProduct = this.products().find(p => p.id === updatedProduct.id);
+      if (oldProduct && oldProduct.stock !== updatedProduct.stock) {
+          const diff = updatedProduct.stock - oldProduct.stock;
+          this.addStockLog(updatedProduct.id, updatedProduct.name, diff, 'Adjustment', 'Manual Edit');
+      }
+
       this.addNewCategory(updatedProduct.category);
       this.products.update(products => 
         products.map(p => p.id === updatedProduct.id ? updatedProduct : p)
@@ -588,6 +611,36 @@ export class PosService {
       return true;
   }
 
+  addStockLog(productId: number, productName: string, changeAmount: number, reason: StockLog['reason'], note?: string) {
+      const log: StockLog = {
+          id: Date.now(),
+          productId,
+          productName,
+          changeAmount,
+          reason,
+          timestamp: new Date().toISOString(),
+          note
+      };
+      this.stockLogs.update(logs => [log, ...logs]);
+  }
+
+  getSalesSummaryForAI(): string {
+      const today = new Date().toDateString();
+      const todaySales = this.totalSalesToday();
+      const todayProfit = this.totalNetProfitToday();
+      const topItems = this.topSellingItems().map(i => `${i.name} (${i.qty})`).join(', ');
+      const lowStock = this.lowStockItems().map(i => i.name).join(', ');
+      
+      return `
+        Date: ${today}
+        Total Sales Today: ${todaySales} MMK
+        Net Profit Today: ${todayProfit} MMK
+        Top Selling Items: ${topItems || 'None'}
+        Low Stock Items: ${lowStock || 'None'}
+        Total Products: ${this.products().length}
+      `;
+  }
+
   exportData() {
       const data = {
           products: this.products(),
@@ -595,6 +648,7 @@ export class PosService {
           customers: this.customers(),
           expenses: this.expenses(),
           categories: this.categories(),
+          stockLogs: this.stockLogs(),
           shopInfo: this.shopInfo(),
           rates: this.exchangeRates(),
           expiry: this.licenseExpiryDate(),
@@ -620,6 +674,7 @@ export class PosService {
                       this.orders.set(data.orders);
                       if(data.expenses) this.expenses.set(data.expenses);
                       if(data.customers) this.customers.set(data.customers);
+                      if(data.stockLogs) this.stockLogs.set(data.stockLogs);
                       if(data.categories) this.categories.set(data.categories);
                       if(data.shopInfo) this.shopInfo.set(data.shopInfo);
                       if(data.rates) this.exchangeRates.set(data.rates);
